@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BrandLogo } from "../branding/BrandLogo";
 
 export function AuthCard({
   title,
@@ -28,7 +29,8 @@ export function AuthBackground({ children }: { children: React.ReactNode }) {
       <div className="absolute -left-20 top-12 h-56 w-56 rounded-full bg-gold-400/20 blur-3xl" />
       <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-gold-500/15 blur-3xl" />
       <div className="relative z-10 w-full">{children}</div>
-      <Link to="/" className="absolute left-6 top-6 text-sm text-zinc-400 hover:text-gold-300">
+      <Link to="/" className="absolute left-6 top-6 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-gold-300">
+        <BrandLogo tone="gold" size="sm" showWordmark={false} />
         Voltar ao inicio
       </Link>
     </div>

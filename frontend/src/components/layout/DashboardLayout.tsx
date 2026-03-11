@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { CarFront, CreditCard, FileClock, LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { BrandLogo } from "../branding/BrandLogo";
 
 const ownerLinks = [
   { to: "/dashboard", label: "Resumo", icon: LayoutDashboard },
@@ -33,12 +34,13 @@ export function DashboardLayout() {
       <div className="mx-auto grid min-h-screen max-w-[1400px] grid-cols-1 lg:grid-cols-[280px_1fr]">
         <aside className="border-b border-white/10 bg-base-900 lg:border-b-0 lg:border-r">
           <div className="border-b border-white/10 p-6">
-            <Link to={user?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard"} className="font-display text-2xl text-gold-300">
-              AutoVitrine
+            <Link to={user?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard"}>
+              <BrandLogo
+                tone="gold"
+                size="sm"
+                subtitle={user?.role === "SUPER_ADMIN" ? "SaaS Admin" : "Painel da loja"}
+              />
             </Link>
-            <p className="mt-2 text-xs uppercase tracking-[0.2em] text-zinc-400">
-              {user?.role === "SUPER_ADMIN" ? "Painel SaaS" : "Painel da loja"}
-            </p>
           </div>
 
           <nav className="space-y-1 p-4">

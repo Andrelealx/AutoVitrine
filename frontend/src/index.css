@@ -27,3 +27,54 @@ textarea,
 button {
   font-family: inherit;
 }
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pulse-gold {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.reveal-up {
+  animation: reveal-up 0.8s ease both;
+}
+
+.drift-slow {
+  animation: drift 9s ease-in-out infinite;
+}
+
+.drift-slower {
+  animation: drift 12s ease-in-out infinite;
+}
+
+.pulse-gold {
+  animation: pulse-gold 4.6s ease-in-out infinite;
+}
