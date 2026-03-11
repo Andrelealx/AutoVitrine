@@ -2,9 +2,11 @@ import { app } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { prisma } from "./config/prisma";
+import { startSubscriptionLifecycleJob } from "./services/subscription-lifecycle.service";
 
 const server = app.listen(env.PORT, () => {
   logger.info(`AutoVitrine API rodando na porta ${env.PORT}`);
+  startSubscriptionLifecycleJob();
 });
 
 async function shutdown(signal: string) {

@@ -1,13 +1,18 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+ï»¿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { UpgradeModal } from "../../components/billing/UpgradeModal";
 import { api } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
-import { Vehicle } from "../../lib/types";
+import { PlanUsage, Vehicle } from "../../lib/types";
 
 type VehiclesResponse = {
   items: Vehicle[];
   total: number;
   page: number;
   totalPages: number;
+};
+
+type SubscriptionResponse = {
+  planUsage: PlanUsage;
 };
 
 type VehicleForm = {
@@ -42,6 +47,7 @@ const defaultForm: VehicleForm = {
 
 export function VehiclesPage() {
   const [vehiclesData, setVehiclesData] = useState<VehiclesResponse | null>(null);
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -53,8 +59,14 @@ export function VehiclesPage() {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeModalMessage, setUpgradeModalMessage] = useState<string | null>(null);
 
   const isEditing = useMemo(() => Boolean(editingVehicleId), [editingVehicleId]);
+
+  async function loadPlanUsage() {
+    const response = await api.get<SubscriptionResponse>("/subscriptions/me");
+    setPlanUsage(response.data.planUsage);
+  }
 
   async function loadVehicles(nextPage = page) {
     setLoading(true);
@@ -75,6 +87,7 @@ export function VehiclesPage() {
 
   useEffect(() => {
     loadVehicles(page);
+    loadPlanUsage().catch(() => undefined);
   }, [page]);
 
   function updateForm<K extends keyof VehicleForm>(key: K, value: VehicleForm[K]) {
@@ -83,8 +96,26 @@ export function VehiclesPage() {
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files || []);
-    const total = selected.slice(0, 15);
+    const total = selected.slice(0, 50);
     setFiles(total);
+  }
+
+  function handleApiError(err: any, fallbackMessage: string) {
+    const statusCode = err?.response?.status;
+    const details = err?.response?.data?.details;
+
+    if (statusCode === 402 && details?.code === "PLAN_LIMIT_REACHED") {
+      setUpgradeModalMessage(err?.response?.data?.message || fallbackMessage);
+      setError(null);
+      return;
+    }
+
+    if (statusCode === 423 && details?.code === "STORE_SUSPENDED") {
+      setError("A loja esta suspensa. Operacoes de escrita estao bloqueadas.");
+      return;
+    }
+
+    setError(err?.response?.data?.message || fallbackMessage);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -147,9 +178,10 @@ export function VehiclesPage() {
       setFiles([]);
       setEditingVehicleId(null);
       await loadVehicles(1);
+      await loadPlanUsage();
       setPage(1);
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Falha ao salvar veiculo.");
+      handleApiError(err, "Falha ao salvar veiculo.");
     } finally {
       setSubmitting(false);
     }
@@ -184,8 +216,9 @@ export function VehiclesPage() {
       await api.delete(`/vehicles/${id}`);
       setMessage("Veiculo removido.");
       await loadVehicles(page);
+      await loadPlanUsage();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Falha ao remover.");
+      handleApiError(err, "Falha ao remover.");
     }
   }
 
@@ -195,6 +228,15 @@ export function VehiclesPage() {
         <h1 className="font-display text-4xl text-gold-300">Estoque de veiculos</h1>
         <p className="mt-2 text-sm text-zinc-400">Cadastre, edite e publique os carros da sua vitrine.</p>
       </header>
+
+      {planUsage ? (
+        <section className="rounded-2xl border border-white/10 bg-base-900 p-4">
+          <p className="text-sm text-zinc-300">
+            Uso atual: {planUsage.usage.vehicles.used}/{planUsage.usage.vehicles.limit ?? "Ilimitado"} veiculos -
+            limite de fotos por veiculo: {planUsage.usage.photosPerVehicle.limit ?? "Ilimitado"}
+          </p>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-white/10 bg-base-900 p-5">
         <h2 className="font-display text-2xl text-zinc-100">{isEditing ? "Editar veiculo" : "Novo veiculo"}</h2>
@@ -301,7 +343,7 @@ export function VehiclesPage() {
           </label>
 
           <label className="md:col-span-2 rounded-xl border border-dashed border-white/20 bg-base-950/40 p-4 text-sm text-zinc-300">
-            Upload de fotos (ate 15)
+            Upload de fotos (ate 50)
             <input type="file" multiple accept="image/*" className="mt-2 block" onChange={handleFiles} />
           </label>
 
@@ -394,7 +436,7 @@ export function VehiclesPage() {
                         <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-zinc-300">{vehicle.status}</span>
                       </div>
                       <p className="mt-1 text-sm text-zinc-400">
-                        {vehicle.year} • {vehicle.mileage.toLocaleString("pt-BR")} km • {vehicle.transmission}
+                        {vehicle.year} - {vehicle.mileage.toLocaleString("pt-BR")} km - {vehicle.transmission}
                       </p>
                       <p className="mt-2 text-xl font-semibold text-gold-300">
                         {formatCurrency(Number(vehicle.price))}
@@ -447,6 +489,12 @@ export function VehiclesPage() {
           <p className="mt-5 text-sm text-zinc-400">Nenhum veiculo cadastrado.</p>
         )}
       </section>
+
+      <UpgradeModal
+        open={Boolean(upgradeModalMessage)}
+        message={upgradeModalMessage || ""}
+        onClose={() => setUpgradeModalMessage(null)}
+      />
     </div>
   );
 }

@@ -50,6 +50,27 @@ enum SubscriptionStatus {
   PAUSED
 }
 
+enum BillingGateway {
+  STRIPE
+  MERCADO_PAGO
+  TRIAL
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+enum StoreSuspensionReason {
+  MANUAL
+  PAYMENT_FAILED
+  CANCELED
+  TRIAL_EXPIRED
+}
+
 model User {
   id                  String    @id @default(cuid())
   name                String
@@ -63,6 +84,8 @@ model User {
   refreshTokenHash    String?
   resetToken          String?
   resetTokenExpiresAt DateTime?
+  auditLogs           AuditLog[] @relation("AuditActor")
+  impersonationLogs   AuditLog[] @relation("AuditImpersonator")
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }
@@ -88,13 +111,23 @@ model Store {
   aboutUs            String?
   openingHours       String?
   address            String?
+  customDomain       String?          @unique
   mapEmbedUrl        String?
   isActive           Boolean         @default(true)
+  suspendedAt        DateTime?
+  suspensionReason   StoreSuspensionReason?
+  suspensionNote     String?
+  unavailableMessage String?
+  dataRetentionUntil DateTime?
+  outboundWebhookUrl String?
+  outboundWebhookSecret String?
   onboardingCompleted Boolean        @default(false)
   users              User[]          @relation("StoreUsers")
   vehicles           Vehicle[]
   leads              Lead[]
   subscriptions      Subscription[]
+  payments           Payment[]
+  auditLogs          AuditLog[]
   storefrontViews    StorefrontView[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -151,31 +184,118 @@ model Lead {
 }
 
 model Plan {
-  id           String         @id @default(cuid())
-  name         String         @unique
-  description  String
-  priceCents   Int
-  vehicleLimit Int?
-  userLimit    Int?
-  stripePriceId String?       @unique
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  subscriptions Subscription[]
+  id                    String         @id @default(cuid())
+  name                  String         @unique
+  description           String
+  priceCents            Int
+  vehicleLimit          Int?
+  userLimit             Int?
+  maxPhotosPerVehicle   Int?
+  allowCustomDomain     Boolean        @default(false)
+  removeWatermark       Boolean        @default(false)
+  includeReports        Boolean        @default(false)
+  includeAdvancedReports Boolean       @default(false)
+  allowOutboundWebhooks Boolean        @default(false)
+  trialDays             Int?
+  isTrial               Boolean        @default(false)
+  showTrialBanner       Boolean        @default(false)
+  isActive              Boolean        @default(true)
+  sortOrder             Int            @default(0)
+  stripePriceId         String?        @unique
+  mercadopagoPlanId     String?        @unique
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  subscriptions         Subscription[]
 }
 
 model Subscription {
-  id                  String             @id @default(cuid())
-  storeId             String             @unique
-  store               Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  planId              String
-  plan                Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
-  stripeCustomerId    String?
-  stripeSubscriptionId String?           @unique
-  status              SubscriptionStatus @default(INCOMPLETE)
-  currentPeriodEnd    DateTime?
-  cancelAtPeriodEnd   Boolean            @default(false)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                       String             @id @default(cuid())
+  storeId                  String             @unique
+  store                    Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  planId                   String
+  plan                     Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  gateway                  BillingGateway?
+  stripeCustomerId         String?
+  stripeSubscriptionId     String?            @unique
+  mercadopagoSubscriptionId String?           @unique
+  mercadopagoPreferenceId  String?
+  mercadopagoPayerId       String?
+  status                   SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodEnd         DateTime?
+  trialEndsAt              DateTime?
+  gracePeriodEndsAt        DateTime?
+  suspendedAt              DateTime?
+  dataRetentionUntil       DateTime?
+  canceledAt               DateTime?
+  cancellationReason       String?
+  activatedAt              DateTime?
+  lastPaymentAt            DateTime?
+  failedPaymentAt          DateTime?
+  paymentFailureCount      Int                @default(0)
+  welcomeEmailSentAt       DateTime?
+  dueReminderSentAt        DateTime?
+  trialReminderSentAt      DateTime?
+  failureEmailSentAt       DateTime?
+  suspensionEmailSentAt    DateTime?
+  reactivationEmailSentAt  DateTime?
+  cancelAtPeriodEnd        Boolean            @default(false)
+  payments                 Payment[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([status, currentPeriodEnd])
+  @@index([gracePeriodEndsAt])
+}
+
+model Payment {
+  id                    String         @id @default(cuid())
+  storeId               String
+  store                 Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  subscriptionId        String?
+  subscription          Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  gateway               BillingGateway
+  status                PaymentStatus  @default(PENDING)
+  amountCents           Int
+  currency              String         @default("BRL")
+  paymentMethod         String?
+  externalPaymentId     String?        @unique
+  externalReference     String?
+  externalPreferenceId  String?
+  externalSubscriptionId String?
+  paidAt                DateTime?
+  dueAt                 DateTime?
+  failureReason         String?
+  payload               Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([storeId, createdAt])
+  @@index([subscriptionId, createdAt])
+  @@index([externalReference])
+}
+
+model AuditLog {
+  id                   String    @id @default(cuid())
+  action               String
+  entityType           String
+  entityId             String?
+  description          String?
+  metadata             Json?
+  actorUserId          String?
+  actorUser            User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorEmail           String?
+  actorRole            UserRole?
+  impersonatedByUserId String?
+  impersonatedByUser   User?     @relation("AuditImpersonator", fields: [impersonatedByUserId], references: [id], onDelete: SetNull)
+  storeId              String?
+  store                Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  ipAddress            String?
+  userAgent            String?
+  createdAt            DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([storeId, createdAt])
 }
 
 model StorefrontView {

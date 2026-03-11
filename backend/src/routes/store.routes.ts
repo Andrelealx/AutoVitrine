@@ -8,7 +8,7 @@ import { validate } from "../middleware/validate";
 import { AppError } from "../utils/app-error";
 import { hashPassword } from "../utils/password";
 import { generateUniqueSlug } from "../utils/slug";
-import { assertUserLimit } from "../utils/plan-limits";
+import { assertStoreCanWrite, assertUserLimit, getStorePlanUsage } from "../utils/plan-limits";
 import { uploadImageBuffer } from "../services/upload.service";
 
 const router = Router();
@@ -69,24 +69,31 @@ router.use(requireStoreContext);
 
 router.get("/me", async (req, res, next) => {
   try {
-    const store = await prisma.store.findUnique({
-      where: {
-        id: req.user!.storeId!
-      },
-      include: {
-        subscriptions: {
-          include: { plan: true },
-          orderBy: { updatedAt: "desc" },
-          take: 1
+    const storeId = req.user!.storeId!;
+    const [store, planUsage] = await Promise.all([
+      prisma.store.findUnique({
+        where: {
+          id: storeId
+        },
+        include: {
+          subscriptions: {
+            include: { plan: true },
+            orderBy: { updatedAt: "desc" },
+            take: 1
+          }
         }
-      }
-    });
+      }),
+      getStorePlanUsage(storeId)
+    ]);
 
     if (!store) {
       throw new AppError("Loja nao encontrada", 404);
     }
 
-    return res.json(store);
+    return res.json({
+      ...store,
+      planUsage
+    });
   } catch (error) {
     return next(error);
   }
@@ -94,6 +101,7 @@ router.get("/me", async (req, res, next) => {
 
 router.put("/me/onboarding", validate(onboardingSchema), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
     const { name, city, state, whatsapp, instagram, description, logoUrl, primaryColor, secondaryColor } = req.body;
     const storeId = req.user!.storeId!;
 
@@ -137,6 +145,7 @@ router.put("/me/onboarding", validate(onboardingSchema), async (req, res, next) 
 
 router.put("/me/customization", validate(customizationSchema), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
     const store = await prisma.store.update({
       where: {
         id: req.user!.storeId!
@@ -155,6 +164,7 @@ router.put("/me/customization", validate(customizationSchema), async (req, res, 
 
 router.post("/me/upload/logo", upload.single("file"), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
     if (!req.file) {
       throw new AppError("Arquivo obrigatorio", 400);
     }
@@ -174,6 +184,7 @@ router.post("/me/upload/logo", upload.single("file"), async (req, res, next) => 
 
 router.post("/me/upload/banner", upload.single("file"), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
     if (!req.file) {
       throw new AppError("Arquivo obrigatorio", 400);
     }
@@ -195,7 +206,7 @@ router.get("/me/dashboard", async (req, res, next) => {
   try {
     const storeId = req.user!.storeId!;
 
-    const [totalVehicles, availableVehicles, soldVehicles, leadsCount, viewsCount, latestLeads] =
+    const [totalVehicles, availableVehicles, soldVehicles, leadsCount, viewsCount, latestLeads, planUsage] =
       await Promise.all([
         prisma.vehicle.count({ where: { storeId } }),
         prisma.vehicle.count({ where: { storeId, status: "AVAILABLE" } }),
@@ -211,7 +222,8 @@ router.get("/me/dashboard", async (req, res, next) => {
             createdAt: "desc"
           },
           take: 8
-        })
+        }),
+        getStorePlanUsage(storeId)
       ]);
 
     return res.json({
@@ -222,7 +234,8 @@ router.get("/me/dashboard", async (req, res, next) => {
         leadsCount,
         viewsCount
       },
-      latestLeads
+      latestLeads,
+      planUsage
     });
   } catch (error) {
     return next(error);
@@ -296,6 +309,7 @@ router.post(
   async (req, res, next) => {
     try {
       const storeId = req.user!.storeId!;
+      await assertStoreCanWrite(storeId);
 
       await assertUserLimit(storeId);
 

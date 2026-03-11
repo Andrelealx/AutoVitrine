@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { CarFront, CreditCard, LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
+import { CarFront, CreditCard, FileClock, LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const ownerLinks = [
@@ -13,11 +13,12 @@ const ownerLinks = [
 const adminLinks = [
   { to: "/admin", label: "Resumo", icon: Shield },
   { to: "/admin/lojas", label: "Lojas", icon: Users },
-  { to: "/admin/planos", label: "Planos", icon: CreditCard }
+  { to: "/admin/planos", label: "Planos", icon: CreditCard },
+  { to: "/admin/auditoria", label: "Auditoria", icon: FileClock }
 ];
 
 export function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating, stopImpersonation } = useAuth();
   const navigate = useNavigate();
 
   const links = user?.role === "SUPER_ADMIN" ? adminLinks : ownerLinks;
@@ -89,6 +90,22 @@ export function DashboardLayout() {
         </aside>
 
         <main className="p-4 sm:p-6 lg:p-8">
+          {isImpersonating ? (
+            <div className="mb-4 rounded-2xl border border-amber-300/30 bg-amber-500/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-amber-100">
+                  Sessao de suporte ativa: voce esta navegando como lojista.
+                </p>
+                <button
+                  type="button"
+                  onClick={stopImpersonation}
+                  className="rounded-xl border border-amber-200/40 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-300/10"
+                >
+                  Voltar para super admin
+                </button>
+              </div>
+            </div>
+          ) : null}
           <Outlet />
         </main>
       </div>

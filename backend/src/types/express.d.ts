@@ -7,6 +7,9 @@ declare global {
         id: string;
         role: UserRole;
         storeId: string | null;
+        email: string;
+        isImpersonation: boolean;
+        impersonatedByUserId: string | null;
       };
     }
   }

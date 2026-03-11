@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { useAuth } from "./context/AuthContext";
+import { AdminAuditLogsPage } from "./pages/admin/AdminAuditLogsPage";
 import { AdminOverviewPage } from "./pages/admin/AdminOverviewPage";
 import { AdminPlansPage } from "./pages/admin/AdminPlansPage";
 import { AdminStoresPage } from "./pages/admin/AdminStoresPage";
@@ -108,6 +109,10 @@ const router = createBrowserRouter([
           {
             path: "planos",
             element: <AdminPlansPage />
+          },
+          {
+            path: "auditoria",
+            element: <AdminAuditLogsPage />
           }
         ]
       }

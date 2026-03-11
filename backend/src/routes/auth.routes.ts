@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
-import { UserRole } from "@prisma/client";
+import { BillingGateway, SubscriptionStatus, UserRole } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { authLimiter } from "../middleware/rate-limit";
 import { requireAuth } from "../middleware/auth";
@@ -12,6 +12,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../utils/
 import { comparePassword, hashPassword } from "../utils/password";
 import { generateUniqueSlug } from "../utils/slug";
 import { env } from "../config/env";
+import { isSuperAdminEmail } from "../utils/super-admin";
 
 const router = Router();
 
@@ -60,11 +61,12 @@ const resetPasswordSchema = z.object({
   params: z.object({}).optional()
 });
 
-async function issueTokens(user: { id: string; role: UserRole; storeId: string | null }) {
+async function issueTokens(user: { id: string; role: UserRole; storeId: string | null; email: string }) {
   const payload = {
     userId: user.id,
     role: user.role,
-    storeId: user.storeId
+    storeId: user.storeId,
+    email: user.email
   };
 
   const accessToken = signAccessToken(payload);
@@ -123,18 +125,30 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res,
         }
       });
 
+      const trialPlan = await tx.plan.findUnique({ where: { name: "TRIAL" } });
       const basicPlan = await tx.plan.findUnique({ where: { name: "BASICO" } });
+      const selectedPlan = trialPlan || basicPlan;
 
-      if (basicPlan) {
+      if (selectedPlan) {
+        const trialDays = selectedPlan.isTrial ? selectedPlan.trialDays || 14 : 0;
+        const currentPeriodEnd = trialDays > 0 ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000) : null;
+
         await tx.subscription.upsert({
           where: { storeId: store.id },
           update: {
-            planId: basicPlan.id
+            planId: selectedPlan.id,
+            gateway: selectedPlan.isTrial ? BillingGateway.TRIAL : null,
+            status: selectedPlan.isTrial ? SubscriptionStatus.TRIALING : SubscriptionStatus.INCOMPLETE,
+            trialEndsAt: currentPeriodEnd,
+            currentPeriodEnd
           },
           create: {
             storeId: store.id,
-            planId: basicPlan.id,
-            status: "INCOMPLETE"
+            planId: selectedPlan.id,
+            gateway: selectedPlan.isTrial ? BillingGateway.TRIAL : null,
+            status: selectedPlan.isTrial ? SubscriptionStatus.TRIALING : SubscriptionStatus.INCOMPLETE,
+            trialEndsAt: currentPeriodEnd,
+            currentPeriodEnd
           }
         });
       }
@@ -154,7 +168,8 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res,
     const tokens = await issueTokens({
       id: created.user.id,
       role: created.user.role,
-      storeId: created.user.storeId
+      storeId: created.user.storeId,
+      email: created.user.email
     });
 
     return res.status(201).json({
@@ -187,14 +202,15 @@ router.post("/login", authLimiter, validate(loginSchema), async (req, res, next)
       throw new AppError("Usuario inativo", 403);
     }
 
-    if (user.role !== UserRole.SUPER_ADMIN && user.store && !user.store.isActive) {
-      throw new AppError("Loja bloqueada", 403);
+    if (user.role === UserRole.SUPER_ADMIN && !isSuperAdminEmail(user.email)) {
+      throw new AppError("Conta super admin invalida para este ambiente", 403);
     }
 
     const tokens = await issueTokens({
       id: user.id,
       role: user.role,
-      storeId: user.storeId
+      storeId: user.storeId,
+      email: user.email
     });
 
     return res.json({
@@ -236,7 +252,8 @@ router.post("/refresh", validate(refreshSchema), async (req, res, next) => {
     const tokens = await issueTokens({
       id: user.id,
       role: user.role,
-      storeId: user.storeId
+      storeId: user.storeId,
+      email: user.email
     });
 
     return res.json(tokens);
@@ -299,6 +316,8 @@ router.get("/me", requireAuth, async (req, res, next) => {
       email: user.email,
       role: user.role,
       storeId: user.storeId,
+      isImpersonation: req.user?.isImpersonation || false,
+      impersonatedByUserId: req.user?.impersonatedByUserId || null,
       store: user.store
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 
 type AdminStats = {
   totalStores: number;
@@ -7,6 +8,12 @@ type AdminStats = {
   totalVehicles: number;
   totalLeads: number;
   activeSubscriptions: number;
+  mrrCents: number;
+  monthlyRevenueCents: number;
+  churnRate: number;
+  newSubscriptionsThisMonth: number;
+  newTrialsThisMonth: number;
+  canceledThisMonth: number;
 };
 
 export function AdminOverviewPage() {
@@ -25,7 +32,13 @@ export function AdminOverviewPage() {
     { label: "Lojas ativas", value: stats.activeStores },
     { label: "Veiculos na plataforma", value: stats.totalVehicles },
     { label: "Leads gerados", value: stats.totalLeads },
-    { label: "Assinaturas ativas", value: stats.activeSubscriptions }
+    { label: "Assinaturas ativas", value: stats.activeSubscriptions },
+    { label: "MRR", value: formatCurrency(stats.mrrCents / 100) },
+    { label: "Receita no mes", value: formatCurrency(stats.monthlyRevenueCents / 100) },
+    { label: "Novas assinaturas", value: stats.newSubscriptionsThisMonth },
+    { label: "Novos trials", value: stats.newTrialsThisMonth },
+    { label: "Canceladas no mes", value: stats.canceledThisMonth },
+    { label: "Churn", value: `${stats.churnRate}%` }
   ];
 
   return (
@@ -35,7 +48,7 @@ export function AdminOverviewPage() {
         <p className="mt-2 text-sm text-zinc-400">Visao geral da operacao SaaS AutoVitrine.</p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <article key={card.label} className="rounded-2xl border border-white/10 bg-base-900 p-4">
             <p className="text-xs uppercase tracking-[0.15em] text-zinc-500">{card.label}</p>

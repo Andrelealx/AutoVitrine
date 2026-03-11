@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+ï»¿import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { VehicleCard } from "../../components/storefront/VehicleCard";
 import { api } from "../../lib/api";
@@ -7,6 +7,17 @@ import { Store, Vehicle } from "../../lib/types";
 type StoreResponse = {
   store: Store;
   featuredVehicles: Vehicle[];
+  subscription: {
+    status: string;
+    trialEndsAt: string | null;
+    plan: {
+      name: string;
+      isTrial: boolean;
+      showTrialBanner: boolean;
+      removeWatermark: boolean;
+    };
+  } | null;
+  isSuspended: boolean;
 };
 
 type VehicleListResponse = {
@@ -124,13 +135,30 @@ export function StorefrontPage() {
   }
 
   const store = storeData.store;
+  const hasTrialBanner =
+    storeData.subscription?.plan.showTrialBanner && storeData.subscription?.status === "TRIALING";
+
+  if (storeData.isSuspended || !store.isActive) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-base-950 p-8 text-center">
+        <div className="max-w-xl rounded-2xl border border-white/10 bg-base-900 p-8">
+          <h1 className="font-display text-4xl text-gold-300">{store.name}</h1>
+          <p className="mt-3 text-zinc-300">
+            {store.unavailableMessage || "Loja temporariamente indisponivel. Tente novamente mais tarde."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: themeColors.secondary }}>
       <header className="relative overflow-hidden border-b border-white/10">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-30"
-          style={{ backgroundImage: `url(${store.bannerUrl || "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1800&auto=format&fit=crop"})` }}
+          style={{
+            backgroundImage: `url(${store.bannerUrl || "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1800&auto=format&fit=crop"})`
+          }}
         />
         <div className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8">
           <div className="max-w-3xl rounded-3xl border border-white/20 bg-black/55 p-8 backdrop-blur">
@@ -156,6 +184,16 @@ export function StorefrontPage() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-8 px-5 py-8 sm:px-8">
+        {hasTrialBanner ? (
+          <section className="rounded-2xl border border-amber-200/30 bg-amber-300/10 p-4 text-sm text-amber-100">
+            Esta loja esta em periodo de teste. O trial expira em{" "}
+            {storeData.subscription?.trialEndsAt
+              ? new Date(storeData.subscription.trialEndsAt).toLocaleDateString("pt-BR")
+              : "breve"}
+            .
+          </section>
+        ) : null}
+
         <section className="rounded-2xl border border-white/10 bg-black/35 p-4 text-zinc-200 backdrop-blur">
           <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-8">
             <input
@@ -331,7 +369,11 @@ export function StorefrontPage() {
               ) : null}
               {store.instagram ? (
                 <a
-                  href={store.instagram.startsWith("http") ? store.instagram : `https://instagram.com/${store.instagram.replace("@", "")}`}
+                  href={
+                    store.instagram.startsWith("http")
+                      ? store.instagram
+                      : `https://instagram.com/${store.instagram.replace("@", "")}`
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-white/25 px-3 py-2 text-zinc-100 hover:bg-white/10"
@@ -410,9 +452,11 @@ export function StorefrontPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 px-6 py-6 text-center text-xs text-zinc-400">
-        Powered by AutoVitrine • <Link to="/" className="text-gold-300">Criar minha vitrine</Link>
-      </footer>
+      {!storeData.subscription?.plan.removeWatermark ? (
+        <footer className="border-t border-white/10 px-6 py-6 text-center text-xs text-zinc-400">
+          Powered by AutoVitrine - <Link to="/" className="text-gold-300">Criar minha vitrine</Link>
+        </footer>
+      ) : null}
     </div>
   );
 }

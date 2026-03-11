@@ -1,5 +1,12 @@
 import axios from "axios";
-import { clearAuthStorage, getAccessToken, getRefreshToken, updateAccessToken } from "./auth-storage";
+import {
+  clearAuthStorage,
+  getAccessToken,
+  getImpersonationBackup,
+  getRefreshToken,
+  restoreAuthFromImpersonationBackup,
+  updateAccessToken
+} from "./auth-storage";
 
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
@@ -40,7 +47,9 @@ api.interceptors.response.use(
 
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
-      clearAuthStorage();
+      if (!getImpersonationBackup() || !restoreAuthFromImpersonationBackup()) {
+        clearAuthStorage();
+      }
       return Promise.reject(error);
     }
 
@@ -73,7 +82,9 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       onRefreshed(null);
-      clearAuthStorage();
+      if (!getImpersonationBackup() || !restoreAuthFromImpersonationBackup()) {
+        clearAuthStorage();
+      }
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

@@ -1,5 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
+import { UpgradeModal } from "../../components/billing/UpgradeModal";
 import { api } from "../../lib/api";
+import { PlanUsage } from "../../lib/types";
 
 type TeamUser = {
   id: string;
@@ -9,8 +11,13 @@ type TeamUser = {
   isActive: boolean;
 };
 
+type SubscriptionResponse = {
+  planUsage: PlanUsage;
+};
+
 export function UsersPage() {
   const [items, setItems] = useState<TeamUser[]>([]);
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     name: "",
@@ -19,18 +26,42 @@ export function UsersPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [upgradeModalMessage, setUpgradeModalMessage] = useState<string | null>(null);
 
-  function loadUsers() {
+  async function loadUsers() {
     setLoading(true);
-    api
-      .get("/stores/me/users")
-      .then((response) => setItems(response.data))
-      .finally(() => setLoading(false));
+
+    const [usersRes, subRes] = await Promise.all([
+      api.get("/stores/me/users"),
+      api.get<SubscriptionResponse>("/subscriptions/me")
+    ]);
+
+    setItems(usersRes.data);
+    setPlanUsage(subRes.data.planUsage);
+    setLoading(false);
   }
 
   useEffect(() => {
     loadUsers();
   }, []);
+
+  function handleApiError(err: any, fallbackMessage: string) {
+    const statusCode = err?.response?.status;
+    const details = err?.response?.data?.details;
+
+    if (statusCode === 402 && details?.code === "PLAN_LIMIT_REACHED") {
+      setUpgradeModalMessage(err?.response?.data?.message || fallbackMessage);
+      setError(null);
+      return;
+    }
+
+    if (statusCode === 423 && details?.code === "STORE_SUSPENDED") {
+      setError("A loja esta suspensa. Operacoes de escrita estao bloqueadas.");
+      return;
+    }
+
+    setError(err?.response?.data?.message || fallbackMessage);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +74,7 @@ export function UsersPage() {
       setForm({ name: "", email: "", password: "" });
       loadUsers();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Falha ao criar usuario.");
+      handleApiError(err, "Falha ao criar usuario.");
     }
   }
 
@@ -53,6 +84,14 @@ export function UsersPage() {
         <h1 className="font-display text-4xl text-gold-300">Equipe</h1>
         <p className="mt-2 text-sm text-zinc-400">Gerencie usuarios da loja de acordo com seu plano.</p>
       </header>
+
+      {planUsage ? (
+        <section className="rounded-2xl border border-white/10 bg-base-900 p-4">
+          <p className="text-sm text-zinc-300">
+            Uso atual de usuarios: {planUsage.usage.users.used}/{planUsage.usage.users.limit ?? "Ilimitado"}
+          </p>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-white/10 bg-base-900 p-5">
         <h2 className="font-display text-2xl text-zinc-100">Novo colaborador</h2>
@@ -112,6 +151,12 @@ export function UsersPage() {
           </div>
         )}
       </section>
+
+      <UpgradeModal
+        open={Boolean(upgradeModalMessage)}
+        message={upgradeModalMessage || ""}
+        onClose={() => setUpgradeModalMessage(null)}
+      />
     </div>
   );
 }

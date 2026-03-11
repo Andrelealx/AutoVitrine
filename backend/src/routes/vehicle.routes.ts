@@ -7,14 +7,14 @@ import { requireAuth, requireRole, requireStoreContext } from "../middleware/aut
 import { validate } from "../middleware/validate";
 import { deleteCloudinaryImage, uploadImageBuffer } from "../services/upload.service";
 import { AppError } from "../utils/app-error";
-import { assertVehicleLimit } from "../utils/plan-limits";
+import { assertStoreCanWrite, assertVehicleLimit, assertVehiclePhotoLimit } from "../utils/plan-limits";
 
 const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
-    files: 15
+    files: 50
   }
 });
 
@@ -120,6 +120,7 @@ router.post("/", upload.array("images", 15), async (req, res, next) => {
     const files = (req.files as Express.Multer.File[]) || [];
 
     if (files.length > 0) {
+      await assertVehiclePhotoLimit(req.user!.storeId!, vehicle.id, files.length);
       const images = [] as { url: string; publicId: string; isCover: boolean }[];
 
       for (let index = 0; index < files.length; index += 1) {
@@ -232,6 +233,8 @@ router.get("/:id", async (req, res, next) => {
 
 router.put("/:id", validate(updateVehicleSchema), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
+
     const vehicle = await prisma.vehicle.findFirst({
       where: {
         id: req.params.id,
@@ -270,8 +273,10 @@ router.put("/:id", validate(updateVehicleSchema), async (req, res, next) => {
   }
 });
 
-router.post("/:id/images", upload.array("images", 15), async (req, res, next) => {
+router.post("/:id/images", upload.array("images", 50), async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
+
     const vehicle = await prisma.vehicle.findFirst({
       where: {
         id: req.params.id,
@@ -292,9 +297,7 @@ router.post("/:id/images", upload.array("images", 15), async (req, res, next) =>
       throw new AppError("Nenhuma imagem enviada", 400);
     }
 
-    if (vehicle.images.length + files.length > 15) {
-      throw new AppError("Cada veiculo suporta no maximo 15 imagens", 400);
-    }
+    await assertVehiclePhotoLimit(req.user!.storeId!, vehicle.id, files.length);
 
     const createdImages = [];
 
@@ -322,6 +325,8 @@ router.post("/:id/images", upload.array("images", 15), async (req, res, next) =>
 
 router.delete("/:id/images/:imageId", async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
+
     const image = await prisma.vehicleImage.findFirst({
       where: {
         id: req.params.imageId,
@@ -359,6 +364,8 @@ router.delete("/:id/images/:imageId", async (req, res, next) => {
 
 router.delete("/:id", async (req, res, next) => {
   try {
+    await assertStoreCanWrite(req.user!.storeId!);
+
     const vehicle = await prisma.vehicle.findFirst({
       where: {
         id: req.params.id,

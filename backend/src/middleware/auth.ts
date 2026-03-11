@@ -1,8 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { UserRole } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { env } from "../config/env";
 import { verifyAccessToken } from "../utils/jwt";
 import { AppError } from "../utils/app-error";
+import { isSuperAdminEmail } from "../utils/super-admin";
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -20,18 +22,17 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       include: { store: true }
     });
 
-    if (!user || !user.isActive) {
+    if (!user || (!user.isActive && !decoded.isImpersonation)) {
       throw new AppError("Usuario inativo ou inexistente", 401);
-    }
-
-    if (user.role !== UserRole.SUPER_ADMIN && user.store && !user.store.isActive) {
-      throw new AppError("Loja bloqueada", 403);
     }
 
     req.user = {
       id: user.id,
       role: user.role,
-      storeId: user.storeId ?? null
+      storeId: user.storeId ?? null,
+      email: user.email,
+      isImpersonation: Boolean(decoded.isImpersonation),
+      impersonatedByUserId: decoded.impersonatedByUserId ?? null
     };
 
     return next();
@@ -55,6 +56,26 @@ export function requireRole(roles: UserRole[]) {
 
     return next();
   };
+}
+
+export function requireSuperAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (!req.user) {
+    return next(new AppError("Nao autenticado", 401));
+  }
+
+  if (!env.SUPER_ADMIN_EMAIL) {
+    return next(new AppError("SUPER_ADMIN_EMAIL nao configurado", 500));
+  }
+
+  if (req.user.role !== UserRole.SUPER_ADMIN || !isSuperAdminEmail(req.user.email)) {
+    return next(new AppError("Sem permissao para este recurso", 403));
+  }
+
+  if (req.user.isImpersonation) {
+    return next(new AppError("Tokens de impersonacao nao acessam o painel admin", 403));
+  }
+
+  return next();
 }
 
 export function requireStoreContext(req: Request, _res: Response, next: NextFunction) {

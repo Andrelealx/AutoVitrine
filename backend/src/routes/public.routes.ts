@@ -37,7 +37,6 @@ async function findStoreBySlug(slug: string) {
   return prisma.store.findFirst({
     where: {
       slug,
-      isActive: true,
       onboardingCompleted: true
     },
     include: {
@@ -60,6 +59,25 @@ async function findStoreBySlug(slug: string) {
   });
 }
 
+function assertPublicStoreAvailable(
+  store: Awaited<ReturnType<typeof findStoreBySlug>>
+): asserts store is NonNullable<Awaited<ReturnType<typeof findStoreBySlug>>> {
+  if (!store) {
+    throw new AppError("Loja nao encontrada", 404);
+  }
+
+  if (!store.isActive) {
+    throw new AppError(
+      store.unavailableMessage || "Esta loja esta temporariamente indisponivel. Tente novamente mais tarde.",
+      503,
+      {
+        code: "STORE_SUSPENDED",
+        unavailableMessage: store.unavailableMessage || null
+      }
+    );
+  }
+}
+
 router.get("/stores/:slug", async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
@@ -68,24 +86,27 @@ router.get("/stores/:slug", async (req, res, next) => {
       throw new AppError("Loja nao encontrada", 404);
     }
 
-    const featuredVehicles = await prisma.vehicle.findMany({
-      where: {
-        storeId: store.id,
-        status: VehicleStatus.AVAILABLE,
-        featured: true
-      },
-      include: {
-        images: {
+    const currentSubscription = store.subscriptions[0] || null;
+    const featuredVehicles = store.isActive
+      ? await prisma.vehicle.findMany({
+          where: {
+            storeId: store.id,
+            status: VehicleStatus.AVAILABLE,
+            featured: true
+          },
+          include: {
+            images: {
+              orderBy: {
+                isCover: "desc"
+              }
+            }
+          },
           orderBy: {
-            isCover: "desc"
-          }
-        }
-      },
-      orderBy: {
-        createdAt: "desc"
-      },
-      take: 12
-    });
+            createdAt: "desc"
+          },
+          take: 12
+        })
+      : [];
 
     return res.json({
       store: {
@@ -107,9 +128,25 @@ router.get("/stores/:slug", async (req, res, next) => {
         aboutUs: store.aboutUs,
         openingHours: store.openingHours,
         address: store.address,
-        mapEmbedUrl: store.mapEmbedUrl
+        mapEmbedUrl: store.mapEmbedUrl,
+        isActive: store.isActive,
+        unavailableMessage:
+          store.unavailableMessage || "Loja temporariamente indisponivel. Tente novamente mais tarde."
       },
-      featuredVehicles
+      subscription: currentSubscription
+        ? {
+            status: currentSubscription.status,
+            trialEndsAt: currentSubscription.trialEndsAt,
+            plan: {
+              name: currentSubscription.plan.name,
+              isTrial: currentSubscription.plan.isTrial,
+              showTrialBanner: currentSubscription.plan.showTrialBanner,
+              removeWatermark: currentSubscription.plan.removeWatermark
+            }
+          }
+        : null,
+      featuredVehicles,
+      isSuspended: !store.isActive
     });
   } catch (error) {
     return next(error);
@@ -119,10 +156,7 @@ router.get("/stores/:slug", async (req, res, next) => {
 router.get("/stores/:slug/vehicles", async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
-
-    if (!store) {
-      throw new AppError("Loja nao encontrada", 404);
-    }
+    assertPublicStoreAvailable(store);
 
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 12);
@@ -222,10 +256,7 @@ router.get("/stores/:slug/vehicles", async (req, res, next) => {
 router.get("/stores/:slug/vehicles/:vehicleId", async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
-
-    if (!store) {
-      throw new AppError("Loja nao encontrada", 404);
-    }
+    assertPublicStoreAvailable(store);
 
     const vehicle = await prisma.vehicle.findFirst({
       where: {
@@ -266,10 +297,7 @@ router.get("/stores/:slug/vehicles/:vehicleId", async (req, res, next) => {
 router.post("/stores/:slug/leads", validate(leadSchema), async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
-
-    if (!store) {
-      throw new AppError("Loja nao encontrada", 404);
-    }
+    assertPublicStoreAvailable(store);
 
     const { name, phone, email, message, vehicleId } = req.body;
 
@@ -325,10 +353,7 @@ router.post("/stores/:slug/leads", validate(leadSchema), async (req, res, next) 
 router.post("/stores/:slug/views", validate(viewSchema), async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
-
-    if (!store) {
-      throw new AppError("Loja nao encontrada", 404);
-    }
+    assertPublicStoreAvailable(store);
 
     const candidateSession = req.body.sessionId || req.headers["x-session-id"];
 
