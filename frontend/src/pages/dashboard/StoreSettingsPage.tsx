@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { api } from "../../lib/api";
 import { Store } from "../../lib/types";
 
@@ -19,6 +20,7 @@ export function StoreSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     api
@@ -133,6 +135,21 @@ export function StoreSettingsPage() {
     }),
     [store.secondaryColor, store.primaryColor]
   );
+
+  const publicStoreUrl = useMemo(() => {
+    const slug = store.slug || "minha-loja";
+    return `${window.location.origin}/loja/${slug}`;
+  }, [store.slug]);
+
+  async function copyPublicStoreUrl() {
+    try {
+      await navigator.clipboard.writeText(publicStoreUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2200);
+    } catch {
+      setError("Nao foi possivel copiar o link. Copie manualmente pela URL exibida.");
+    }
+  }
 
   if (loading) {
     return <p className="text-zinc-400">Carregando configuracoes...</p>;
@@ -298,8 +315,49 @@ export function StoreSettingsPage() {
       <aside className="space-y-4">
         <div className="rounded-2xl border border-white/10 bg-base-900 p-4 text-sm text-zinc-300">
           <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">URL publica</p>
-          <p className="mt-2 break-all text-gold-300">
-            {window.location.origin.replace(/:\d+$/, "")} /loja/{store.slug}
+
+          <a
+            href={publicStoreUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-base-950/70 px-3 py-2 text-gold-300 transition hover:border-gold-300/40 hover:bg-base-950"
+          >
+            <span className="truncate">{publicStoreUrl}</span>
+            <ExternalLink size={15} className="shrink-0" />
+          </a>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              href={publicStoreUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-gold-400 px-3 py-2 text-xs font-semibold text-base-950 transition hover:bg-gold-300"
+            >
+              Abrir vitrine
+              <ExternalLink size={14} />
+            </a>
+
+            <button
+              type="button"
+              onClick={copyPublicStoreUrl}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-xs text-zinc-200 transition hover:bg-white/5"
+            >
+              {linkCopied ? (
+                <>
+                  <Check size={14} className="text-green-300" />
+                  Link copiado
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  Copiar link
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-zinc-500">
+            Use este link no Instagram, WhatsApp e Google para gerar mais visitas.
           </p>
         </div>
 
