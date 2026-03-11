@@ -21,7 +21,8 @@ const registerSchema = z.object({
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(8),
-    storeName: z.string().min(2).optional()
+    storeName: z.string().min(2).optional(),
+    planId: z.string().min(1).optional()
   }),
   query: z.object({}).optional(),
   params: z.object({}).optional()
@@ -84,7 +85,7 @@ async function issueTokens(user: { id: string; role: UserRole; storeId: string |
 
 router.post("/register", authLimiter, validate(registerSchema), async (req, res, next) => {
   try {
-    const { name, email, password, storeName } = req.body;
+    const { name, email, password, storeName, planId } = req.body;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -125,9 +126,43 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res,
         }
       });
 
-      const trialPlan = await tx.plan.findUnique({ where: { name: "TRIAL" } });
-      const basicPlan = await tx.plan.findUnique({ where: { name: "BASICO" } });
-      const selectedPlan = trialPlan || basicPlan;
+      let selectedPlan = null as Awaited<ReturnType<typeof tx.plan.findFirst>>;
+
+      if (planId) {
+        selectedPlan = await tx.plan.findFirst({
+          where: {
+            id: planId,
+            isActive: true
+          }
+        });
+
+        if (!selectedPlan) {
+          throw new AppError("Plano selecionado nao encontrado", 404);
+        }
+      }
+
+      if (!selectedPlan) {
+        const trialPlan = await tx.plan.findFirst({
+          where: {
+            name: "TRIAL",
+            isActive: true
+          }
+        });
+        const basicPlan = await tx.plan.findFirst({
+          where: {
+            name: "BASICO",
+            isActive: true
+          }
+        });
+        const firstActivePlan = await tx.plan.findFirst({
+          where: {
+            isActive: true
+          },
+          orderBy: [{ sortOrder: "asc" }, { priceCents: "asc" }]
+        });
+
+        selectedPlan = trialPlan || basicPlan || firstActivePlan;
+      }
 
       if (selectedPlan) {
         const trialDays = selectedPlan.isTrial ? selectedPlan.trialDays || 14 : 0;

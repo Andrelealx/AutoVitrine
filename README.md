@@ -2,6 +2,11 @@
 
 Plataforma SaaS white-label para lojistas criarem sua vitrine digital de veiculos.
 
+## Documentacao
+
+- Levantamento tecnico: `docs/LEVANTAMENTO-2026-03-11.md`
+- Documentacao inicial do sistema: `docs/DOCUMENTACAO-SISTEMA.md`
+
 ## Stack
 
 - Backend: Node.js + Express + Prisma + PostgreSQL

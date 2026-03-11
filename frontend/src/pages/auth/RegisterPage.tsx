@@ -1,7 +1,10 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthBackground, AuthCard } from "../../components/layout/AuthLayout";
 import { useAuth } from "../../context/AuthContext";
+import { api } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
+import { Plan } from "../../lib/types";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -11,12 +14,38 @@ export function RegisterPage() {
   const [storeName, setStoreName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [loadingPlans, setLoadingPlans] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<Plan[]>("/subscriptions/plans")
+      .then((response) => {
+        const availablePlans = response.data;
+        setPlans(availablePlans);
+
+        const defaultPlan = availablePlans.find((item) => item.isTrial) || availablePlans[0];
+        if (defaultPlan) {
+          setSelectedPlanId(defaultPlan.id);
+        }
+      })
+      .finally(() => setLoadingPlans(false));
+  }, []);
+
+  const selectedPlan = useMemo(() => plans.find((item) => item.id === selectedPlanId) || null, [plans, selectedPlanId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (!loadingPlans && plans.length > 0 && !selectedPlanId) {
+      setError("Selecione um plano para continuar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -24,9 +53,10 @@ export function RegisterPage() {
         name,
         storeName,
         email,
-        password
+        password,
+        planId: selectedPlanId || undefined
       });
-      navigate("/dashboard/loja");
+      navigate(selectedPlan?.isTrial ? "/dashboard/loja" : "/dashboard/assinatura");
     } catch (err: any) {
       setError(err?.response?.data?.message || "Falha ao cadastrar");
     } finally {
@@ -69,6 +99,36 @@ export function RegisterPage() {
               onChange={(event) => setStoreName(event.target.value)}
               className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-zinc-300">Plano inicial</label>
+            <select
+              required
+              value={selectedPlanId}
+              onChange={(event) => setSelectedPlanId(event.target.value)}
+              disabled={loadingPlans}
+              className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring disabled:opacity-70"
+            >
+              {loadingPlans ? <option value="">Carregando planos...</option> : null}
+              {!loadingPlans && plans.length === 0 ? <option value="">Nenhum plano disponivel</option> : null}
+              {!loadingPlans
+                ? plans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} -{" "}
+                      {plan.isTrial
+                        ? `Trial ${plan.trialDays || 14} dias`
+                        : `${formatCurrency(plan.priceCents / 100)}/mes`}
+                    </option>
+                  ))
+                : null}
+            </select>
+            {selectedPlan ? (
+              <p className="mt-2 text-xs text-zinc-400">
+                {selectedPlan.description}
+                {!selectedPlan.isTrial ? " O pagamento e finalizado na etapa de assinatura." : ""}
+              </p>
+            ) : null}
           </div>
 
           <div>

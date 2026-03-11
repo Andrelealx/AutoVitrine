@@ -31,6 +31,7 @@ type RegisterInput = {
   email: string;
   password: string;
   storeName?: string;
+  planId?: string;
 };
 
 type AuthContextValue = {
