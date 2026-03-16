@@ -1,5 +1,17 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { CarFront, CreditCard, FileClock, LayoutDashboard, LogOut, Settings, Shield, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  CarFront,
+  CreditCard,
+  FileClock,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  Shield,
+  Users,
+  X
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { BrandLogo } from "../branding/BrandLogo";
 
@@ -21,18 +33,99 @@ const adminLinks = [
 export function DashboardLayout() {
   const { user, logout, isImpersonating, stopImpersonation } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const links = user?.role === "SUPER_ADMIN" ? adminLinks : ownerLinks;
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   async function handleLogout() {
     await logout();
     navigate("/login");
   }
 
+  function navClass(isActive: boolean) {
+    return `flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
+      isActive ? "bg-gold-400/20 text-gold-200" : "text-zinc-300 hover:bg-white/5"
+    }`;
+  }
+
+  function renderLinks(onNavigate?: () => void) {
+    return (
+      <>
+        {links.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/dashboard" || item.to === "/admin"}
+              onClick={onNavigate}
+              className={({ isActive }) => navClass(isActive)}
+            >
+              <Icon size={16} />
+              {item.label}
+            </NavLink>
+          );
+        })}
+
+        {user?.role !== "SUPER_ADMIN" && (
+          <NavLink
+            to="/dashboard/usuarios"
+            onClick={onNavigate}
+            className={({ isActive }) => navClass(isActive)}
+          >
+            <Users size={16} />
+            Equipe
+          </NavLink>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-base-950 text-zinc-100">
-      <div className="mx-auto grid min-h-screen max-w-[1400px] grid-cols-1 lg:grid-cols-[280px_1fr]">
-        <aside className="border-b border-white/10 bg-base-900 lg:border-b-0 lg:border-r">
+      <div className="mx-auto min-h-screen max-w-[1400px] lg:grid lg:grid-cols-[280px_1fr]">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-base-900/95 backdrop-blur lg:hidden">
+          <div className="flex items-center justify-between gap-3 p-4">
+            <Link to={user?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard"}>
+              <BrandLogo
+                tone="gold"
+                size="sm"
+                subtitle={user?.role === "SUPER_ADMIN" ? "SaaS Admin" : "Painel da loja"}
+              />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-expanded={mobileMenuOpen}
+              className="flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-sm text-zinc-100"
+            >
+              {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+              {mobileMenuOpen ? "Fechar" : "Menu"}
+            </button>
+          </div>
+
+          {mobileMenuOpen ? (
+            <div className="space-y-3 border-t border-white/10 p-4">
+              <nav className="space-y-1">{renderLinks(() => setMobileMenuOpen(false))}</nav>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm text-zinc-200 transition hover:bg-white/5"
+              >
+                <LogOut size={16} />
+                Sair
+              </button>
+            </div>
+          ) : null}
+        </header>
+
+        <aside className="hidden border-r border-white/10 bg-base-900 lg:flex lg:min-h-screen lg:flex-col">
           <div className="border-b border-white/10 p-6">
             <Link to={user?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard"}>
               <BrandLogo
@@ -43,41 +136,7 @@ export function DashboardLayout() {
             </Link>
           </div>
 
-          <nav className="space-y-1 p-4">
-            {links.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/dashboard" || item.to === "/admin"}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
-                      isActive ? "bg-gold-400/20 text-gold-200" : "text-zinc-300 hover:bg-white/5"
-                    }`
-                  }
-                >
-                  <Icon size={16} />
-                  {item.label}
-                </NavLink>
-              );
-            })}
-
-            {user?.role !== "SUPER_ADMIN" && (
-              <NavLink
-                to="/dashboard/usuarios"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
-                    isActive ? "bg-gold-400/20 text-gold-200" : "text-zinc-300 hover:bg-white/5"
-                  }`
-                }
-              >
-                <Users size={16} />
-                Equipe
-              </NavLink>
-            )}
-          </nav>
+          <nav className="space-y-1 p-4">{renderLinks()}</nav>
 
           <div className="mt-auto p-4">
             <button

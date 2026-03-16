@@ -44,7 +44,7 @@ export function AdminOverviewPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-4xl text-gold-300">Painel do Super Admin</h1>
+        <h1 className="font-display text-3xl text-gold-300 sm:text-4xl">Painel do Super Admin</h1>
         <p className="mt-2 text-sm text-zinc-400">Visao geral da operacao SaaS AutoVitrine.</p>
       </header>
 
@@ -52,7 +52,7 @@ export function AdminOverviewPage() {
         {cards.map((card) => (
           <article key={card.label} className="rounded-2xl border border-white/10 bg-base-900 p-4">
             <p className="text-xs uppercase tracking-[0.15em] text-zinc-500">{card.label}</p>
-            <p className="mt-2 text-3xl font-semibold text-zinc-100">{card.value}</p>
+            <p className="mt-2 break-words text-2xl font-semibold text-zinc-100 sm:text-3xl">{card.value}</p>
           </article>
         ))}
       </section>

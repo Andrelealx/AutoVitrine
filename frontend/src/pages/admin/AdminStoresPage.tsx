@@ -82,7 +82,7 @@ export function AdminStoresPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-4xl text-gold-300">Lojas cadastradas</h1>
+        <h1 className="font-display text-3xl text-gold-300 sm:text-4xl">Lojas cadastradas</h1>
         <p className="mt-2 text-sm text-zinc-400">Gerencie status, assinatura e suporte por impersonacao.</p>
       </header>
 
@@ -97,22 +97,24 @@ export function AdminStoresPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-100">{store.name}</h2>
-                  <p className="text-sm text-zinc-400">/{store.slug}</p>
-                  <p className="mt-1 text-sm text-zinc-300">
+                  <p className="break-all text-sm text-zinc-400">/{store.slug}</p>
+                  <p className="mt-1 break-all text-sm text-zinc-300">
                     {store.owner.name} - {store.owner.email}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="w-full text-left sm:w-auto sm:text-right">
                   <p className="text-xs text-zinc-500">Plano</p>
-                  <p className="text-sm text-zinc-200">{store.subscriptions[0]?.plan.name || "Sem assinatura"}</p>
-                  <p className="text-xs text-zinc-500">Gateway: {store.subscriptions[0]?.gateway || "-"}</p>
-                  <p className="text-xs text-zinc-500">Status assinatura: {store.subscriptions[0]?.status || "-"}</p>
+                  <p className="break-all text-sm text-zinc-200">{store.subscriptions[0]?.plan.name || "Sem assinatura"}</p>
+                  <p className="break-all text-xs text-zinc-500">Gateway: {store.subscriptions[0]?.gateway || "-"}</p>
+                  <p className="break-all text-xs text-zinc-500">Status assinatura: {store.subscriptions[0]?.status || "-"}</p>
                   <p className="text-xs text-zinc-500">Status loja: {store.isActive ? "Ativa" : "Suspensa"}</p>
                 </div>
               </div>
 
-              <p className="mt-3 text-sm text-zinc-400">
-                Veiculos: {store._count.vehicles} - Leads: {store._count.leads} - Usuarios: {store._count.users}
+              <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-zinc-400">
+                <span>Veiculos: {store._count.vehicles}</span>
+                <span>Leads: {store._count.leads}</span>
+                <span>Usuarios: {store._count.users}</span>
               </p>
 
               {!store.isActive && store.suspensionReason ? (
@@ -126,7 +128,7 @@ export function AdminStoresPage() {
                 <button
                   type="button"
                   onClick={() => toggleStatus(store)}
-                  className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-100 hover:bg-white/5"
+                  className="w-full rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-100 hover:bg-white/5 sm:w-auto"
                 >
                   {store.isActive ? "Suspender loja" : "Reativar loja"}
                 </button>
@@ -134,7 +136,7 @@ export function AdminStoresPage() {
                 <button
                   type="button"
                   onClick={() => startImpersonation(store)}
-                  className="rounded-xl border border-gold-300/40 px-4 py-2 text-sm text-gold-200 hover:bg-gold-300/10"
+                  className="w-full rounded-xl border border-gold-300/40 px-4 py-2 text-sm text-gold-200 hover:bg-gold-300/10 sm:w-auto"
                 >
                   Entrar como lojista
                 </button>
@@ -142,7 +144,7 @@ export function AdminStoresPage() {
                 <button
                   type="button"
                   onClick={() => cancelSubscription(store)}
-                  className="rounded-xl border border-red-300/40 px-4 py-2 text-sm text-red-200 hover:bg-red-300/10"
+                  className="w-full rounded-xl border border-red-300/40 px-4 py-2 text-sm text-red-200 hover:bg-red-300/10 sm:w-auto"
                 >
                   Cancelar assinatura
                 </button>

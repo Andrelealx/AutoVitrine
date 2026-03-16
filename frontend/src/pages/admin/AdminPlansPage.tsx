@@ -178,7 +178,7 @@ export function AdminPlansPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-4xl text-gold-300">Planos</h1>
+        <h1 className="font-display text-3xl text-gold-300 sm:text-4xl">Planos</h1>
         <p className="mt-2 text-sm text-zinc-400">Gerencie precos, limites e recursos de cada plano.</p>
       </header>
 
@@ -192,15 +192,15 @@ export function AdminPlansPage() {
       <section className="grid gap-4 lg:grid-cols-2">
         {plans.map((plan) => (
           <article key={plan.id} className="rounded-2xl border border-white/10 bg-base-900 p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="font-display text-2xl text-gold-300">{plan.name}</h2>
                 <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
               </div>
               <button
                 type="button"
                 onClick={() => hydrateForm(plan)}
-                className="rounded-xl border border-white/20 px-3 py-2 text-xs text-zinc-200 hover:bg-white/5"
+                className="w-full rounded-xl border border-white/20 px-3 py-2 text-xs text-zinc-200 hover:bg-white/5 sm:w-auto"
               >
                 Editar
               </button>
@@ -437,7 +437,7 @@ export function AdminPlansPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-xl bg-gold-400 px-4 py-3 text-sm font-semibold text-base-950 transition hover:bg-gold-300 disabled:opacity-60"
+            className="w-full rounded-xl bg-gold-400 px-4 py-3 text-sm font-semibold text-base-950 transition hover:bg-gold-300 disabled:opacity-60 sm:w-auto"
           >
             {submitting ? "Salvando..." : isEditing ? "Salvar alteracoes" : "Salvar plano"}
           </button>
@@ -451,7 +451,7 @@ export function AdminPlansPage() {
                 setFormSuccess(null);
                 setForm({ ...emptyForm });
               }}
-              className="rounded-xl border border-white/20 px-4 py-3 text-sm text-zinc-200 hover:bg-white/5"
+              className="w-full rounded-xl border border-white/20 px-4 py-3 text-sm text-zinc-200 hover:bg-white/5 sm:w-auto"
             >
               Cancelar edicao
             </button>

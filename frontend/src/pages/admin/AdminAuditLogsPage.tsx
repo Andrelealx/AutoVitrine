@@ -31,7 +31,7 @@ export function AdminAuditLogsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-4xl text-gold-300">Auditoria</h1>
+        <h1 className="font-display text-3xl text-gold-300 sm:text-4xl">Auditoria</h1>
         <p className="mt-2 text-sm text-zinc-400">Historico completo das acoes do super admin.</p>
       </header>
 
@@ -48,7 +48,7 @@ export function AdminAuditLogsPage() {
                 <p className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleString("pt-BR")}</p>
               </div>
               <p className="mt-2 text-sm text-zinc-300">{item.description || "Sem descricao adicional."}</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 break-all text-xs text-zinc-500">
                 Ator: {item.actorEmail || "sistema"} • Entidade: {item.entityId || "-"}
               </p>
             </article>
