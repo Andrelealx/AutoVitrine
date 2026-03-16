@@ -15,6 +15,14 @@ const upload = multer({
   limits: {
     fileSize: 8 * 1024 * 1024,
     files: 50
+  },
+  fileFilter: (_req, file, callback) => {
+    if (file.mimetype.startsWith("image/")) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new AppError("Envie apenas arquivos de imagem.", 400));
   }
 });
 
@@ -82,6 +90,36 @@ function parseOptionalItems(value?: string | string[]) {
     .filter(Boolean);
 }
 
+async function uploadVehicleImages(params: {
+  vehicleId: string;
+  files: Express.Multer.File[];
+  coverFromFirstImage: boolean;
+}) {
+  const uploadedImages = await Promise.all(
+    params.files.map((file, index) =>
+      uploadImageBuffer(file.buffer, `autovitrine/vehicles/${params.vehicleId}`).then((uploaded) => ({
+        vehicleId: params.vehicleId,
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        isCover: params.coverFromFirstImage && index === 0
+      }))
+    )
+  );
+
+  if (uploadedImages.length === 0) {
+    return [];
+  }
+
+  await prisma.vehicleImage.createMany({
+    data: uploadedImages
+  });
+
+  return prisma.vehicleImage.findMany({
+    where: { vehicleId: params.vehicleId },
+    orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+  });
+}
+
 router.use(requireAuth);
 router.use(requireRole([UserRole.STORE_OWNER, UserRole.STORE_STAFF]));
 router.use(requireStoreContext);
@@ -121,31 +159,20 @@ router.post("/", upload.array("images", 15), async (req, res, next) => {
 
     if (files.length > 0) {
       await assertVehiclePhotoLimit(req.user!.storeId!, vehicle.id, files.length);
-      const images = [] as { url: string; publicId: string; isCover: boolean }[];
-
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        const uploaded = await uploadImageBuffer(file.buffer, `autovitrine/vehicles/${vehicle.id}`);
-        images.push({
-          url: uploaded.url,
-          publicId: uploaded.publicId,
-          isCover: index === 0
-        });
-      }
-
-      await prisma.vehicleImage.createMany({
-        data: images.map((image) => ({
-          vehicleId: vehicle.id,
-          url: image.url,
-          publicId: image.publicId,
-          isCover: image.isCover
-        }))
+      await uploadVehicleImages({
+        vehicleId: vehicle.id,
+        files,
+        coverFromFirstImage: true
       });
     }
 
     const fullVehicle = await prisma.vehicle.findUnique({
       where: { id: vehicle.id },
-      include: { images: true }
+      include: {
+        images: {
+          orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+        }
+      }
     });
 
     return res.status(201).json({
@@ -217,7 +244,9 @@ router.get("/:id", async (req, res, next) => {
         storeId: req.user!.storeId!
       },
       include: {
-        images: true
+        images: {
+          orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+        }
       }
     });
 
@@ -260,7 +289,9 @@ router.put("/:id", validate(updateVehicleSchema), async (req, res, next) => {
         optionalItems
       },
       include: {
-        images: true
+        images: {
+          orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+        }
       }
     });
 
@@ -298,25 +329,77 @@ router.post("/:id/images", upload.array("images", 50), async (req, res, next) =>
     }
 
     await assertVehiclePhotoLimit(req.user!.storeId!, vehicle.id, files.length);
+    const shouldDefineCover = !vehicle.images.some((image) => image.isCover);
+    const updatedImages = await uploadVehicleImages({
+      vehicleId: vehicle.id,
+      files,
+      coverFromFirstImage: shouldDefineCover
+    });
 
-    const createdImages = [];
-
-    for (const file of files) {
-      const uploaded = await uploadImageBuffer(file.buffer, `autovitrine/vehicles/${vehicle.id}`);
-      const image = await prisma.vehicleImage.create({
-        data: {
-          vehicleId: vehicle.id,
-          url: uploaded.url,
-          publicId: uploaded.publicId,
-          isCover: false
+    const refreshedVehicle = await prisma.vehicle.findUnique({
+      where: { id: vehicle.id },
+      include: {
+        images: {
+          orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
         }
-      });
-      createdImages.push(image);
-    }
+      }
+    });
 
     return res.status(201).json({
       message: "Imagens adicionadas",
-      images: createdImages
+      images: updatedImages,
+      vehicle: refreshedVehicle
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/:id/images/:imageId/cover", async (req, res, next) => {
+  try {
+    await assertStoreCanWrite(req.user!.storeId!);
+
+    const vehicle = await prisma.vehicle.findFirst({
+      where: {
+        id: req.params.id,
+        storeId: req.user!.storeId!
+      }
+    });
+
+    if (!vehicle) {
+      throw new AppError("Veiculo nao encontrado", 404);
+    }
+
+    const image = await prisma.vehicleImage.findFirst({
+      where: {
+        id: req.params.imageId,
+        vehicleId: vehicle.id
+      }
+    });
+
+    if (!image) {
+      throw new AppError("Imagem nao encontrada", 404);
+    }
+
+    await prisma.$transaction([
+      prisma.vehicleImage.updateMany({
+        where: { vehicleId: vehicle.id, isCover: true },
+        data: { isCover: false }
+      }),
+      prisma.vehicleImage.update({
+        where: { id: image.id },
+        data: { isCover: true }
+      })
+    ]);
+
+    const images = await prisma.vehicleImage.findMany({
+      where: { vehicleId: vehicle.id },
+      orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+    });
+
+    return res.json({
+      message: "Imagem capa atualizada",
+      images
     });
   } catch (error) {
     return next(error);
@@ -356,7 +439,15 @@ router.delete("/:id/images/:imageId", async (req, res, next) => {
       });
     }
 
-    return res.json({ message: "Imagem removida" });
+    const refreshedImages = await prisma.vehicleImage.findMany({
+      where: { vehicleId: req.params.id },
+      orderBy: [{ isCover: "desc" }, { createdAt: "asc" }]
+    });
+
+    return res.json({
+      message: "Imagem removida",
+      images: refreshedImages
+    });
   } catch (error) {
     return next(error);
   }
