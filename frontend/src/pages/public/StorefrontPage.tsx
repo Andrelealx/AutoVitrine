@@ -1,4 +1,5 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { Compass, Filter, LayoutGrid, MessageCircle, PhoneCall, Sparkles } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { VehicleCard } from "../../components/storefront/VehicleCard";
 import { api } from "../../lib/api";
@@ -33,6 +34,71 @@ type VehicleListResponse = {
   };
 };
 
+function toGoogleMapsExternalUrl(value?: string | null) {
+  const raw = (value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
+}
+
+function toGoogleMapsEmbedSrc(value?: string | null) {
+  const raw = (value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const fromQuery = (query: string) => `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+
+  try {
+    const normalized = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
+    const url = new URL(normalized);
+    const host = url.hostname.toLowerCase();
+    const isGoogleDomain = host.includes("google.") || host.includes("goo.gl") || host.includes("maps.app.goo.gl");
+
+    if (!isGoogleDomain) {
+      return fromQuery(raw);
+    }
+
+    if (url.pathname.includes("/maps/embed")) {
+      return url.toString();
+    }
+
+    const query = url.searchParams.get("q") || url.searchParams.get("query");
+    if (query) {
+      return fromQuery(query);
+    }
+
+    if (url.pathname.includes("/maps/place/")) {
+      const place = decodeURIComponent(url.pathname.split("/maps/place/")[1].split("/")[0] || "").replace(/\+/g, " ");
+      if (place) {
+        return fromQuery(place);
+      }
+    }
+
+    if (url.pathname.includes("/maps/search/")) {
+      const search = decodeURIComponent(url.pathname.split("/maps/search/")[1].split("/")[0] || "").replace(/\+/g, " ");
+      if (search) {
+        return fromQuery(search);
+      }
+    }
+
+    if (host.includes("maps.app.goo.gl")) {
+      return fromQuery(raw);
+    }
+
+    url.searchParams.set("output", "embed");
+    return url.toString();
+  } catch {
+    return fromQuery(raw);
+  }
+}
+
 export function StorefrontPage() {
   const { slug = "" } = useParams();
 
@@ -57,6 +123,7 @@ export function StorefrontPage() {
   });
   const [leadSent, setLeadSent] = useState<string | null>(null);
   const [leadError, setLeadError] = useState<string | null>(null);
+  const [mapFrameFailed, setMapFrameFailed] = useState(false);
 
   async function loadStore() {
     const response = await api.get(`/public/stores/${slug}`);
@@ -100,6 +167,20 @@ export function StorefrontPage() {
       secondary: store?.secondaryColor || "#111111"
     };
   }, [storeData]);
+
+  const mapEmbedSrc = useMemo(
+    () => toGoogleMapsEmbedSrc(storeData?.store.mapEmbedUrl || storeData?.store.address),
+    [storeData?.store.mapEmbedUrl, storeData?.store.address]
+  );
+
+  const mapExternalUrl = useMemo(
+    () => toGoogleMapsExternalUrl(storeData?.store.mapEmbedUrl || storeData?.store.address),
+    [storeData?.store.mapEmbedUrl, storeData?.store.address]
+  );
+
+  useEffect(() => {
+    setMapFrameFailed(false);
+  }, [mapEmbedSrc]);
 
   async function handleLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -183,6 +264,54 @@ export function StorefrontPage() {
         </div>
       </header>
 
+      <nav className="sticky top-0 z-20 border-b border-white/10 bg-base-950/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-5 py-3 sm:px-8">
+          <div className="flex flex-wrap gap-2 text-sm">
+            <a href="#filtros" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-zinc-200 transition hover:bg-white/5">
+              <Filter size={14} />
+              Filtros
+            </a>
+            <a href="#destaques" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-zinc-200 transition hover:bg-white/5">
+              <Sparkles size={14} />
+              Destaques
+            </a>
+            <a href="#estoque" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-zinc-200 transition hover:bg-white/5">
+              <LayoutGrid size={14} />
+              Estoque
+            </a>
+            <a href="#contato" className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-zinc-200 transition hover:bg-white/5">
+              <MessageCircle size={14} />
+              Contato
+            </a>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs">
+            {store.whatsapp ? (
+              <a
+                href={`https://wa.me/${store.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-xl border border-emerald-300/30 px-3 py-2 text-emerald-200 transition hover:bg-emerald-500/10"
+              >
+                <PhoneCall size={13} />
+                WhatsApp
+              </a>
+            ) : null}
+            {mapExternalUrl ? (
+              <a
+                href={mapExternalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-xl border border-white/20 px-3 py-2 text-zinc-200 transition hover:bg-white/5"
+              >
+                <Compass size={13} />
+                Como chegar
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </nav>
+
       <main className="mx-auto max-w-7xl space-y-8 px-5 py-8 sm:px-8">
         {hasTrialBanner ? (
           <section className="rounded-2xl border border-amber-200/30 bg-amber-300/10 p-4 text-sm text-amber-100">
@@ -194,7 +323,7 @@ export function StorefrontPage() {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-white/10 bg-black/35 p-4 text-zinc-200 backdrop-blur">
+        <section id="filtros" className="rounded-2xl border border-white/10 bg-black/35 p-4 text-zinc-200 backdrop-blur">
           <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-8">
             <input
               value={search}
@@ -243,7 +372,7 @@ export function StorefrontPage() {
               onChange={(event) => setTransmission(event.target.value)}
               className="rounded-xl border border-white/15 bg-black/45 px-4 py-3 text-sm"
             >
-              <option value="">Cambio</option>
+              <option value="">Transmissao</option>
               {vehiclesData?.filters.transmissions.map((item) => (
                 <option key={item} value={item}>
                   {item}
@@ -253,13 +382,13 @@ export function StorefrontPage() {
             <input
               value={minPrice}
               onChange={(event) => setMinPrice(event.target.value)}
-              placeholder="Preco min"
+              placeholder="Preco minimo"
               className="rounded-xl border border-white/15 bg-black/45 px-4 py-3 text-sm"
             />
             <input
               value={maxPrice}
               onChange={(event) => setMaxPrice(event.target.value)}
-              placeholder="Preco max"
+              placeholder="Preco maximo"
               className="rounded-xl border border-white/15 bg-black/45 px-4 py-3 text-sm"
             />
           </div>
@@ -275,7 +404,7 @@ export function StorefrontPage() {
         </section>
 
         {storeData.featuredVehicles.length > 0 ? (
-          <section>
+          <section id="destaques">
             <h2 className="font-display text-3xl" style={{ color: themeColors.primary }}>
               Destaques da loja
             </h2>
@@ -293,9 +422,9 @@ export function StorefrontPage() {
           </section>
         ) : null}
 
-        <section>
+        <section id="estoque">
           <h2 className="font-display text-3xl" style={{ color: themeColors.primary }}>
-            Todos os veiculos
+            Estoque completo
           </h2>
 
           {vehiclesData && vehiclesData.items.length > 0 ? (
@@ -347,7 +476,7 @@ export function StorefrontPage() {
           )}
         </section>
 
-        <section className="grid gap-6 rounded-2xl border border-white/10 bg-black/35 p-5 lg:grid-cols-2">
+        <section id="contato" className="grid gap-6 rounded-2xl border border-white/10 bg-black/35 p-5 lg:grid-cols-2">
           <div>
             <h3 className="font-display text-3xl" style={{ color: themeColors.primary }}>
               Sobre a loja
@@ -393,14 +522,31 @@ export function StorefrontPage() {
               ) : null}
             </div>
 
-            {store.mapEmbedUrl ? (
+            {mapEmbedSrc && !mapFrameFailed ? (
               <iframe
-                src={store.mapEmbedUrl}
+                src={mapEmbedSrc}
                 className="mt-5 h-56 w-full rounded-xl border border-white/20"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 title="Mapa da loja"
+                onError={() => setMapFrameFailed(true)}
               />
+            ) : (
+              <div className="mt-5 rounded-xl border border-white/20 bg-black/25 p-4 text-sm text-zinc-300">
+                Nao foi possivel carregar o mapa incorporado para este link.
+              </div>
+            )}
+
+            {mapExternalUrl ? (
+              <a
+                href={mapExternalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/25 px-3 py-2 text-sm text-zinc-100 hover:bg-white/10"
+              >
+                <Compass size={14} />
+                Abrir no Google Maps
+              </a>
             ) : null}
           </div>
 
@@ -454,7 +600,10 @@ export function StorefrontPage() {
 
       {!storeData.subscription?.plan.removeWatermark ? (
         <footer className="border-t border-white/10 px-6 py-6 text-center text-xs text-zinc-400">
-          Powered by AutoVitrine - <Link to="/" className="text-gold-300">Criar minha vitrine</Link>
+          Powered by AutoVitrine -{" "}
+          <Link to="/" className="text-gold-300">
+            Criar minha vitrine
+          </Link>
         </footer>
       ) : null}
     </div>

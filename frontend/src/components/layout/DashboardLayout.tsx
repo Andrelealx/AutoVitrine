@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   CarFront,
+  ChevronRight,
   CreditCard,
   FileClock,
   LayoutDashboard,
@@ -16,15 +17,15 @@ import { useAuth } from "../../context/AuthContext";
 import { BrandLogo } from "../branding/BrandLogo";
 
 const ownerLinks = [
-  { to: "/dashboard", label: "Resumo", icon: LayoutDashboard },
-  { to: "/dashboard/veiculos", label: "Veiculos", icon: CarFront },
+  { to: "/dashboard", label: "Visao geral", icon: LayoutDashboard },
+  { to: "/dashboard/veiculos", label: "Estoque", icon: CarFront },
   { to: "/dashboard/leads", label: "Leads", icon: Users },
-  { to: "/dashboard/loja", label: "Personalizacao", icon: Settings },
+  { to: "/dashboard/loja", label: "Personalizacao da loja", icon: Settings },
   { to: "/dashboard/assinatura", label: "Assinatura", icon: CreditCard }
 ];
 
 const adminLinks = [
-  { to: "/admin", label: "Resumo", icon: Shield },
+  { to: "/admin", label: "Visao geral", icon: Shield },
   { to: "/admin/lojas", label: "Lojas", icon: Users },
   { to: "/admin/planos", label: "Planos", icon: CreditCard },
   { to: "/admin/auditoria", label: "Auditoria", icon: FileClock }
@@ -48,9 +49,23 @@ export function DashboardLayout() {
   }
 
   function navClass(isActive: boolean) {
-    return `flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
-      isActive ? "bg-gold-400/20 text-gold-200" : "text-zinc-300 hover:bg-white/5"
+    return `group flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm transition ${
+      isActive
+        ? "border-gold-300/35 bg-gradient-to-r from-gold-400/20 to-transparent text-gold-100 shadow-[0_0_0_1px_rgba(212,168,69,0.15)]"
+        : "border-transparent text-zinc-300 hover:border-white/10 hover:bg-white/5"
     }`;
+  }
+
+  function roleLabel() {
+    if (user?.role === "SUPER_ADMIN") {
+      return "Super admin";
+    }
+
+    if (user?.role === "STORE_OWNER") {
+      return "Lojista";
+    }
+
+    return "Equipe";
   }
 
   function renderLinks(onNavigate?: () => void) {
@@ -67,8 +82,15 @@ export function DashboardLayout() {
               onClick={onNavigate}
               className={({ isActive }) => navClass(isActive)}
             >
-              <Icon size={16} />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <span className="flex items-center gap-3">
+                    <Icon size={16} />
+                    {item.label}
+                  </span>
+                  <ChevronRight size={15} className={isActive ? "opacity-90" : "opacity-0 group-hover:opacity-60"} />
+                </>
+              )}
             </NavLink>
           );
         })}
@@ -79,8 +101,15 @@ export function DashboardLayout() {
             onClick={onNavigate}
             className={({ isActive }) => navClass(isActive)}
           >
-            <Users size={16} />
-            Equipe
+            {({ isActive }) => (
+              <>
+                <span className="flex items-center gap-3">
+                  <Users size={16} />
+                  Equipe
+                </span>
+                <ChevronRight size={15} className={isActive ? "opacity-90" : "opacity-0 group-hover:opacity-60"} />
+              </>
+            )}
           </NavLink>
         )}
       </>
@@ -112,6 +141,7 @@ export function DashboardLayout() {
 
           {mobileMenuOpen ? (
             <div className="space-y-3 border-t border-white/10 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Menu principal</p>
               <nav className="space-y-1">{renderLinks(() => setMobileMenuOpen(false))}</nav>
               <button
                 type="button"
@@ -134,9 +164,17 @@ export function DashboardLayout() {
                 subtitle={user?.role === "SUPER_ADMIN" ? "SaaS Admin" : "Painel da loja"}
               />
             </Link>
+            <div className="mt-4 rounded-xl border border-white/10 bg-base-950/55 p-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Sessao ativa</p>
+              <p className="mt-2 text-sm font-semibold text-zinc-100">{user?.name}</p>
+              <p className="text-xs text-zinc-400">{roleLabel()}</p>
+            </div>
           </div>
 
-          <nav className="space-y-1 p-4">{renderLinks()}</nav>
+          <div className="px-4 pt-4">
+            <p className="mb-2 text-xs uppercase tracking-[0.16em] text-zinc-500">Navegacao</p>
+            <nav className="space-y-1">{renderLinks()}</nav>
+          </div>
 
           <div className="mt-auto p-4">
             <button

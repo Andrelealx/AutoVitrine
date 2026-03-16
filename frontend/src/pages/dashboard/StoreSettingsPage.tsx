@@ -342,6 +342,25 @@ export function StoreSettingsPage() {
     }
   }
 
+  function normalizeMapInputOrFail(rawValue?: string | null) {
+    const raw = (rawValue || "").trim();
+    if (!raw) {
+      return { ok: true as const, value: null };
+    }
+
+    const normalized =
+      raw.startsWith("http://") || raw.startsWith("https://")
+        ? raw
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
+
+    try {
+      const url = new URL(normalized);
+      return { ok: true as const, value: url.toString() };
+    } catch {
+      return { ok: false as const, value: null };
+    }
+  }
+
   async function persistCustomization(silent = false) {
     setSavingCustomization(true);
     if (!silent) {
@@ -356,9 +375,9 @@ export function StoreSettingsPage() {
       return false;
     }
 
-    const mapEmbedUrl = normalizeOptionalUrlOrFail(store.mapEmbedUrl);
+    const mapEmbedUrl = normalizeMapInputOrFail(store.mapEmbedUrl);
     if (!mapEmbedUrl.ok) {
-      setError("URL do mapa invalida.");
+      setError("Link ou endereco do mapa invalido.");
       setSavingCustomization(false);
       return false;
     }
@@ -897,7 +916,7 @@ export function StoreSettingsPage() {
               <input
                 value={store.mapEmbedUrl || ""}
                 onChange={(event) => setAndClearMessage("mapEmbedUrl", event.target.value)}
-                placeholder="Google Maps Embed URL"
+                placeholder="Link do Google Maps ou endereco"
                 className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
               />
             </div>
@@ -910,6 +929,10 @@ export function StoreSettingsPage() {
               <p className="mt-1">
                 Use um slogan direto (beneficio + confianca), inclua horario, endereco e um CTA no WhatsApp para subir
                 taxa de contato.
+              </p>
+              <p className="mt-2 text-zinc-500">
+                No mapa, voce pode colar endereco, link de compartilhamento ou link embed que o sistema adapta para a
+                vitrine.
               </p>
             </div>
           </div>
