@@ -62,7 +62,7 @@ export function VehicleDetailsPage() {
     <div className="min-h-screen" style={{ backgroundColor: store.secondaryColor }}>
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <Link to={`/loja/${store.slug}`} className="text-sm text-zinc-300 hover:text-white">
-          ? Voltar para a vitrine
+          &#8592; Voltar para a vitrine
         </Link>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -102,12 +102,28 @@ export function VehicleDetailsPage() {
             <p className="mt-3 text-3xl font-semibold" style={{ color: store.primaryColor }}>
               {formatCurrency(Number(vehicle.price))}
             </p>
-            <p className="mt-2 text-sm text-zinc-300">
-              {vehicle.year} ï {vehicle.color} ï {vehicle.mileage.toLocaleString("pt-BR")} km
-            </p>
-            <p className="text-sm text-zinc-300">
-              Combustivel: {vehicle.fuel} ï Cambio: {vehicle.transmission}
-            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+                <p className="text-xs text-zinc-500">Ano</p>
+                <p className="text-sm font-semibold text-zinc-200">{vehicle.year}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+                <p className="text-xs text-zinc-500">Cor</p>
+                <p className="text-sm font-semibold text-zinc-200">{vehicle.color}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+                <p className="text-xs text-zinc-500">Quilometragem</p>
+                <p className="text-sm font-semibold text-zinc-200">{vehicle.mileage.toLocaleString("pt-BR")} km</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+                <p className="text-xs text-zinc-500">Combust√≠vel</p>
+                <p className="text-sm font-semibold text-zinc-200">{vehicle.fuel}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+                <p className="text-xs text-zinc-500">C√¢mbio</p>
+                <p className="text-sm font-semibold text-zinc-200">{vehicle.transmission}</p>
+              </div>
+            </div>
 
             <p className="mt-4 text-sm leading-relaxed text-zinc-200">{vehicle.description}</p>
 
