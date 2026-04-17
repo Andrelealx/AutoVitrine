@@ -1,4 +1,4 @@
-﻿import { Compass, Filter, LayoutGrid, MessageCircle, PhoneCall, Sparkles } from "lucide-react";
+﻿import { Compass, Filter, Instagram, LayoutGrid, MessageCircle, PhoneCall, Sparkles } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { VehicleCard } from "../../components/storefront/VehicleCard";
@@ -266,6 +266,21 @@ export function StorefrontPage() {
               >
                 <PhoneCall size={13} />
                 WhatsApp
+              </a>
+            ) : null}
+            {store.instagram ? (
+              <a
+                href={
+                  store.instagram.startsWith("http")
+                    ? store.instagram
+                    : `https://instagram.com/${store.instagram.replace("@", "")}`
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-xl border border-pink-400/30 px-3 py-2 text-pink-200 transition hover:bg-pink-500/10"
+              >
+                <Instagram size={13} />
+                Instagram
               </a>
             ) : null}
             {mapExternalUrl ? (
