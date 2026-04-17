@@ -38,7 +38,7 @@ export function VehicleCard({
           {vehicle.brand} {vehicle.model}
         </h3>
         <p className="text-sm text-zinc-300">
-          {vehicle.year} • {vehicle.mileage.toLocaleString("pt-BR")} km • {vehicle.transmission}
+          {vehicle.year} &middot; {vehicle.mileage.toLocaleString("pt-BR")} km &middot; {vehicle.transmission}
         </p>
         <p className="text-xl font-semibold" style={{ color: primaryColor }}>
           {formatCurrency(Number(vehicle.price))}
