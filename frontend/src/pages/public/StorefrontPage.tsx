@@ -53,11 +53,16 @@ function toGoogleMapsEmbedSrc(value?: string | null) {
     return null;
   }
 
-  const fromQuery = (query: string) => `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  const fromQuery = (query: string) =>
+    `https://maps.google.com/maps?q=${encodeURIComponent(query)}&hl=pt-BR&z=16&t=m&output=embed`;
+
+  // Texto simples (endereço sem protocolo) — gera embed direto
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    return fromQuery(raw);
+  }
 
   try {
-    const normalized = raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
-    const url = new URL(normalized);
+    const url = new URL(raw);
     const host = url.hostname.toLowerCase();
     const isGoogleDomain = host.includes("google.") || host.includes("goo.gl") || host.includes("maps.app.goo.gl");
 
@@ -65,34 +70,36 @@ function toGoogleMapsEmbedSrc(value?: string | null) {
       return fromQuery(raw);
     }
 
+    // Já é um link embed — usa direto
     if (url.pathname.includes("/maps/embed")) {
       return url.toString();
     }
 
+    // Extrai query de parâmetros comuns
     const query = url.searchParams.get("q") || url.searchParams.get("query");
     if (query) {
       return fromQuery(query);
     }
 
+    // Link de lugar: /maps/place/NOME/...
     if (url.pathname.includes("/maps/place/")) {
       const place = decodeURIComponent(url.pathname.split("/maps/place/")[1].split("/")[0] || "").replace(/\+/g, " ");
-      if (place) {
-        return fromQuery(place);
-      }
+      if (place) return fromQuery(place);
     }
 
+    // Link de busca: /maps/search/TERMO/...
     if (url.pathname.includes("/maps/search/")) {
       const search = decodeURIComponent(url.pathname.split("/maps/search/")[1].split("/")[0] || "").replace(/\+/g, " ");
-      if (search) {
-        return fromQuery(search);
-      }
+      if (search) return fromQuery(search);
     }
 
+    // Link curto (maps.app.goo.gl) — não tem query extraível, usa URL como busca
     if (host.includes("maps.app.goo.gl")) {
       return fromQuery(raw);
     }
 
     url.searchParams.set("output", "embed");
+    url.searchParams.set("hl", "pt-BR");
     return url.toString();
   } catch {
     return fromQuery(raw);

@@ -348,17 +348,18 @@ export function StoreSettingsPage() {
       return { ok: true as const, value: null };
     }
 
-    const normalized =
-      raw.startsWith("http://") || raw.startsWith("https://")
-        ? raw
-        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
-
-    try {
-      const url = new URL(normalized);
-      return { ok: true as const, value: url.toString() };
-    } catch {
-      return { ok: false as const, value: null };
+    // Se for URL, valida e salva como está
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      try {
+        const url = new URL(raw);
+        return { ok: true as const, value: url.toString() };
+      } catch {
+        return { ok: false as const, value: null };
+      }
     }
+
+    // Endereço em texto — salva direto, a vitrine converte na exibição
+    return { ok: true as const, value: raw };
   }
 
   async function persistCustomization(silent = false) {
@@ -913,12 +914,18 @@ export function StoreSettingsPage() {
                 className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
               />
 
-              <input
-                value={store.mapEmbedUrl || ""}
-                onChange={(event) => setAndClearMessage("mapEmbedUrl", event.target.value)}
-                placeholder="Link do Google Maps ou endereco"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
-              />
+              <div className="md:col-span-2">
+                <input
+                  value={store.mapEmbedUrl || ""}
+                  onChange={(event) => setAndClearMessage("mapEmbedUrl", event.target.value)}
+                  placeholder="Endereco completo ou link do Google Maps"
+                  className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
+                />
+                <p className="mt-1 text-xs text-zinc-500">
+                  Digite o endereço completo (ex: Av. Paulista, 1000, São Paulo, SP) ou cole o link de
+                  compartilhamento do Google Maps para um mapa mais preciso.
+                </p>
+              </div>
             </div>
 
             <div className="rounded-xl border border-white/10 bg-base-950/60 p-3 text-xs text-zinc-400">
