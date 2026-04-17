@@ -53,42 +53,15 @@ function toGoogleMapsEmbedSrc(value?: string | null) {
     return null;
   }
 
-  // Texto simples (sem protocolo) → não embeda, evita múltiplos pinos
-  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-    return null;
-  }
-
+  // Só embeda URLs do tipo /maps/embed?pb=... (obtidas via Share > Incorporar mapa)
+  // Qualquer outro formato (busca, place, texto) mostra apenas o botão externo
   try {
     const url = new URL(raw);
     const host = url.hostname.toLowerCase();
-    const isGoogleDomain = host.includes("google.") || host.includes("goo.gl") || host.includes("maps.app.goo.gl");
+    const isGoogleDomain = host.includes("google.");
 
-    if (!isGoogleDomain) {
-      return null;
-    }
-
-    // Já é link embed — usa direto
-    if (url.pathname.includes("/maps/embed")) {
+    if (isGoogleDomain && url.pathname.includes("/maps/embed")) {
       return url.toString();
-    }
-
-    // Link de lugar com coordenadas: /maps/place/NOME/@lat,lng,zoom
-    // Constrói embed a partir do lugar
-    if (url.pathname.includes("/maps/place/")) {
-      const place = decodeURIComponent(url.pathname.split("/maps/place/")[1].split("/")[0] || "").replace(/\+/g, " ");
-      if (place) {
-        return `https://maps.google.com/maps?q=${encodeURIComponent(place)}&hl=pt-BR&z=17&t=m&output=embed`;
-      }
-    }
-
-    // Link curto (maps.app.goo.gl) — não tem query extraível sem seguir redirect
-    if (host.includes("maps.app.goo.gl")) {
-      return null;
-    }
-
-    const query = url.searchParams.get("q") || url.searchParams.get("query");
-    if (query) {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&hl=pt-BR&z=17&t=m&output=embed`;
     }
 
     return null;
