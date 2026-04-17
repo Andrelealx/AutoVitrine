@@ -142,12 +142,12 @@ export function VehicleDetailsPage() {
                 <a
                   href={whatsappLink(
                     store.whatsapp,
-                    `Olá! Vi o anúncio no site da ${store.name} e tenho interesse neste veículo:\n\n` +
-                    `🚗 ${vehicle.brand} ${vehicle.model} ${vehicle.year}\n` +
-                    `💰 ${formatCurrency(Number(vehicle.price))}\n` +
-                    `📍 ${vehicle.mileage.toLocaleString("pt-BR")} km | ${vehicle.color} | ${vehicle.fuel} | ${vehicle.transmission}\n\n` +
-                    `🔗 ${window.location.href}\n\n` +
-                    `Poderia me passar mais informações?`
+                    `Ol\u00E1! Vi o an\u00FAncio no site da ${store.name} e tenho interesse neste ve\u00EDculo:\n\n` +
+                    `\u{1F697} ${vehicle.brand} ${vehicle.model} ${vehicle.year}\n` +
+                    `\u{1F4B0} ${formatCurrency(Number(vehicle.price))}\n` +
+                    `\u{1F4CD} ${vehicle.mileage.toLocaleString("pt-BR")} km | ${vehicle.color} | ${vehicle.fuel} | ${vehicle.transmission}\n\n` +
+                    `\u{1F517} ${window.location.href}\n\n` +
+                    `Poderia me passar mais informa\u00E7\u00F5es?`
                   )}
                   target="_blank"
                   rel="noreferrer"
