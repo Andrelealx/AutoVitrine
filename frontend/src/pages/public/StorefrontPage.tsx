@@ -53,12 +53,9 @@ function toGoogleMapsEmbedSrc(value?: string | null) {
     return null;
   }
 
-  const fromQuery = (query: string) =>
-    `https://maps.google.com/maps?q=${encodeURIComponent(query)}&hl=pt-BR&z=16&t=m&output=embed`;
-
-  // Texto simples (endereço sem protocolo) — gera embed direto
+  // Texto simples (sem protocolo) → não embeda, evita múltiplos pinos
   if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-    return fromQuery(raw);
+    return null;
   }
 
   try {
@@ -67,42 +64,36 @@ function toGoogleMapsEmbedSrc(value?: string | null) {
     const isGoogleDomain = host.includes("google.") || host.includes("goo.gl") || host.includes("maps.app.goo.gl");
 
     if (!isGoogleDomain) {
-      return fromQuery(raw);
+      return null;
     }
 
-    // Já é um link embed — usa direto
+    // Já é link embed — usa direto
     if (url.pathname.includes("/maps/embed")) {
       return url.toString();
     }
 
-    // Extrai query de parâmetros comuns
-    const query = url.searchParams.get("q") || url.searchParams.get("query");
-    if (query) {
-      return fromQuery(query);
-    }
-
-    // Link de lugar: /maps/place/NOME/...
+    // Link de lugar com coordenadas: /maps/place/NOME/@lat,lng,zoom
+    // Constrói embed a partir do lugar
     if (url.pathname.includes("/maps/place/")) {
       const place = decodeURIComponent(url.pathname.split("/maps/place/")[1].split("/")[0] || "").replace(/\+/g, " ");
-      if (place) return fromQuery(place);
+      if (place) {
+        return `https://maps.google.com/maps?q=${encodeURIComponent(place)}&hl=pt-BR&z=17&t=m&output=embed`;
+      }
     }
 
-    // Link de busca: /maps/search/TERMO/...
-    if (url.pathname.includes("/maps/search/")) {
-      const search = decodeURIComponent(url.pathname.split("/maps/search/")[1].split("/")[0] || "").replace(/\+/g, " ");
-      if (search) return fromQuery(search);
-    }
-
-    // Link curto (maps.app.goo.gl) — não tem query extraível, usa URL como busca
+    // Link curto (maps.app.goo.gl) — não tem query extraível sem seguir redirect
     if (host.includes("maps.app.goo.gl")) {
-      return fromQuery(raw);
+      return null;
     }
 
-    url.searchParams.set("output", "embed");
-    url.searchParams.set("hl", "pt-BR");
-    return url.toString();
+    const query = url.searchParams.get("q") || url.searchParams.get("query");
+    if (query) {
+      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&hl=pt-BR&z=17&t=m&output=embed`;
+    }
+
+    return null;
   } catch {
-    return fromQuery(raw);
+    return null;
   }
 }
 
@@ -538,11 +529,17 @@ export function StorefrontPage() {
                 title="Mapa da loja"
                 onError={() => setMapFrameFailed(true)}
               />
-            ) : (
-              <div className="mt-5 rounded-xl border border-white/20 bg-black/25 p-4 text-sm text-zinc-300">
-                Nao foi possivel carregar o mapa incorporado para este link.
+            ) : mapExternalUrl ? (
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-white/15 bg-black/25 p-4">
+                <Compass size={18} className="shrink-0 text-zinc-400" />
+                <div>
+                  <p className="text-sm text-zinc-200">Localização disponível no Google Maps</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Clique em "Abrir no Google Maps" para ver a localização exata.
+                  </p>
+                </div>
               </div>
-            )}
+            ) : null}
 
             {mapExternalUrl ? (
               <a

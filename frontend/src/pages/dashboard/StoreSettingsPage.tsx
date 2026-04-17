@@ -914,17 +914,23 @@ export function StoreSettingsPage() {
                 className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
               />
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 space-y-2">
                 <input
                   value={store.mapEmbedUrl || ""}
                   onChange={(event) => setAndClearMessage("mapEmbedUrl", event.target.value)}
-                  placeholder="Endereco completo ou link do Google Maps"
+                  placeholder="Cole o link do Google Maps aqui"
                   className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm"
                 />
-                <p className="mt-1 text-xs text-zinc-500">
-                  Digite o endereço completo (ex: Av. Paulista, 1000, São Paulo, SP) ou cole o link de
-                  compartilhamento do Google Maps para um mapa mais preciso.
-                </p>
+                <div className="rounded-xl border border-white/10 bg-base-950/60 p-3 text-xs text-zinc-400 space-y-1">
+                  <p className="font-semibold text-zinc-300">Como obter o link correto do mapa:</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Abra o Google Maps e busque o endereço da sua loja</li>
+                    <li>Clique no local encontrado para abrir o painel lateral</li>
+                    <li>Clique em <span className="text-zinc-200">Compartilhar</span> (icone de seta)</li>
+                    <li>Escolha <span className="text-zinc-200">Incorporar um mapa</span> e copie apenas o link do atributo <code className="text-gold-300">src="..."</code></li>
+                  </ol>
+                  <p className="mt-2 text-zinc-500">Isso garante que o mapa mostra exatamente um unico local na vitrine.</p>
+                </div>
               </div>
             </div>
 
