@@ -9,6 +9,7 @@ export type StoredUser = {
   email: string;
   role: "SUPER_ADMIN" | "STORE_OWNER" | "STORE_STAFF";
   storeId: string | null;
+  store?: { id: string; name: string; slug: string } | null;
   isImpersonation?: boolean;
   impersonatedByUserId?: string | null;
 };

@@ -75,6 +75,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: data.email,
         role: data.role,
         storeId: data.storeId,
+        store: data.store
+          ? { id: data.store.id, name: data.store.name, slug: data.store.slug }
+          : null,
         isImpersonation: Boolean(data.isImpersonation),
         impersonatedByUserId: data.impersonatedByUserId || null
       });
@@ -100,6 +103,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { data } = await api.post("/auth/login", input);
     const nextUser = normalizeUser({
       ...data.user,
+      store: data.store
+        ? { id: data.store.id, name: data.store.name, slug: data.store.slug }
+        : null,
       isImpersonation: false,
       impersonatedByUserId: null
     });
@@ -117,6 +123,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { data } = await api.post("/auth/register", input);
     const nextUser = normalizeUser({
       ...data.user,
+      store: data.store
+        ? { id: data.store.id, name: data.store.name, slug: data.store.slug }
+        : null,
       isImpersonation: false,
       impersonatedByUserId: null
     });

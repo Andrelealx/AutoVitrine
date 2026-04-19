@@ -258,14 +258,29 @@ router.get("/me/leads", async (req, res, next) => {
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 20);
     const skip = (page - 1) * pageSize;
+    const search = String(req.query.search || "").trim();
+
+    const where = {
+      storeId: req.user!.storeId!,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { phone: { contains: search, mode: "insensitive" as const } },
+              { message: { contains: search, mode: "insensitive" as const } },
+              { email: { contains: search, mode: "insensitive" as const } }
+            ]
+          }
+        : {})
+    };
 
     const [items, total] = await Promise.all([
       prisma.lead.findMany({
-        where: {
-          storeId: req.user!.storeId!
-        },
+        where,
         include: {
-          vehicle: true
+          vehicle: {
+            select: { id: true, brand: true, model: true, year: true }
+          }
         },
         orderBy: {
           createdAt: "desc"
@@ -273,7 +288,7 @@ router.get("/me/leads", async (req, res, next) => {
         skip,
         take: pageSize
       }),
-      prisma.lead.count({ where: { storeId: req.user!.storeId! } })
+      prisma.lead.count({ where })
     ]);
 
     return res.json({
