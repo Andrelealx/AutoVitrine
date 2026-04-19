@@ -8,6 +8,7 @@ import { validate } from "../middleware/validate";
 import { AppError } from "../utils/app-error";
 import { hashPassword } from "../utils/password";
 import { generateUniqueSlug } from "../utils/slug";
+import { cache } from "../utils/cache";
 import { assertStoreCanWrite, assertUserLimit, getStorePlanUsage } from "../utils/plan-limits";
 import { uploadImageBuffer } from "../services/upload.service";
 
@@ -134,6 +135,9 @@ router.put("/me/onboarding", validate(onboardingSchema), async (req, res, next) 
       }
     });
 
+    cache.invalidate(`store:${store.slug}`);
+    cache.invalidate(`vehicles:${store.slug}`);
+
     return res.json({
       message: "Onboarding salvo com sucesso",
       store
@@ -152,6 +156,9 @@ router.put("/me/customization", validate(customizationSchema), async (req, res, 
       },
       data: req.body
     });
+
+    cache.invalidate(`store:${store.slug}`);
+    cache.invalidate(`vehicles:${store.slug}`);
 
     return res.json({
       message: "Personalizacao atualizada",
@@ -176,6 +183,8 @@ router.post("/me/upload/logo", upload.single("file"), async (req, res, next) => 
       data: { logoUrl: image.url }
     });
 
+    cache.invalidate(`store:${store.slug}`);
+
     return res.json({ store, imageUrl: image.url });
   } catch (error) {
     return next(error);
@@ -195,6 +204,8 @@ router.post("/me/upload/banner", upload.single("file"), async (req, res, next) =
       where: { id: req.user!.storeId! },
       data: { bannerUrl: image.url }
     });
+
+    cache.invalidate(`store:${store.slug}`);
 
     return res.json({ store, imageUrl: image.url });
   } catch (error) {

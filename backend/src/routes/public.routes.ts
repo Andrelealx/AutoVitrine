@@ -6,6 +6,8 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../utils/app-error";
 import { validate } from "../middleware/validate";
 import { sendEmail } from "../services/email.service";
+import { cache } from "../utils/cache";
+import { leadsLimiter } from "../middleware/rate-limit";
 
 const router = Router();
 
@@ -80,6 +82,12 @@ function assertPublicStoreAvailable(
 
 router.get("/stores/:slug", async (req, res, next) => {
   try {
+    const cacheKey = `store:${req.params.slug}`;
+    const cached = cache.get<object>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const store = await findStoreBySlug(req.params.slug);
 
     if (!store) {
@@ -108,7 +116,7 @@ router.get("/stores/:slug", async (req, res, next) => {
         })
       : [];
 
-    return res.json({
+    const payload = {
       store: {
         id: store.id,
         name: store.name,
@@ -147,7 +155,12 @@ router.get("/stores/:slug", async (req, res, next) => {
         : null,
       featuredVehicles,
       isSuspended: !store.isActive
-    });
+    };
+
+    // Cache por 60 segundos — reduz queries no banco para visitantes frequentes
+    cache.set(cacheKey, payload, 60);
+
+    return res.json(payload);
   } catch (error) {
     return next(error);
   }
@@ -155,11 +168,22 @@ router.get("/stores/:slug", async (req, res, next) => {
 
 router.get("/stores/:slug/vehicles", async (req, res, next) => {
   try {
-    const store = await findStoreBySlug(req.params.slug);
-    assertPublicStoreAvailable(store);
-
+    // Cache dos filtros disponíveis (marcas/anos) por 2 minutos — sem filtros ativos
+    const hasFilters = req.query.search || req.query.brand || req.query.year ||
+      req.query.minPrice || req.query.maxPrice || req.query.transmission || req.query.fuel;
     const page = Number(req.query.page || 1);
     const pageSize = Number(req.query.pageSize || 12);
+    const filterCacheKey = !hasFilters && page === 1
+      ? `vehicles:${req.params.slug}:p1`
+      : null;
+
+    if (filterCacheKey) {
+      const cached = cache.get<object>(filterCacheKey);
+      if (cached) return res.json(cached);
+    }
+
+    const store = await findStoreBySlug(req.params.slug);
+    assertPublicStoreAvailable(store);
     const search = String(req.query.search || "").trim();
     const brand = req.query.brand ? String(req.query.brand) : undefined;
     const year = req.query.year ? Number(req.query.year) : undefined;
@@ -235,7 +259,7 @@ router.get("/stores/:slug/vehicles", async (req, res, next) => {
       })
     ]);
 
-    return res.json({
+    const vehiclePayload = {
       items,
       total,
       page,
@@ -247,7 +271,13 @@ router.get("/stores/:slug/vehicles", async (req, res, next) => {
         fuels: Object.values(FuelType),
         transmissions: Object.values(TransmissionType)
       }
-    });
+    };
+
+    if (filterCacheKey) {
+      cache.set(filterCacheKey, vehiclePayload, 120);
+    }
+
+    return res.json(vehiclePayload);
   } catch (error) {
     return next(error);
   }
@@ -294,7 +324,7 @@ router.get("/stores/:slug/vehicles/:vehicleId", async (req, res, next) => {
   }
 });
 
-router.post("/stores/:slug/leads", validate(leadSchema), async (req, res, next) => {
+router.post("/stores/:slug/leads", leadsLimiter, validate(leadSchema), async (req, res, next) => {
   try {
     const store = await findStoreBySlug(req.params.slug);
     assertPublicStoreAvailable(store);

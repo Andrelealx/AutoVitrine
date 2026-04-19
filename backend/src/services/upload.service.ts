@@ -1,6 +1,20 @@
+import sharp from "sharp";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 import { AppError } from "../utils/app-error";
+
+// Comprime a imagem antes do upload para economizar Cloudinary e largura de banda
+async function compressImage(buffer: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(buffer)
+      .resize({ width: 1600, height: 1200, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, progressive: true })
+      .toBuffer();
+  } catch {
+    // Se o sharp falhar (ex: formato não suportado), usa o buffer original
+    return buffer;
+  }
+}
 
 type CloudinaryV2 = typeof import("cloudinary")["v2"];
 
@@ -54,6 +68,7 @@ function getCloudinary() {
 
 export async function uploadImageBuffer(buffer: Buffer, folder: string) {
   const cloudinaryClient = getCloudinary();
+  const compressed = await compressImage(buffer);
 
   return new Promise<{ url: string; publicId: string }>((resolve, reject) => {
     const stream = cloudinaryClient.uploader.upload_stream(
@@ -74,7 +89,7 @@ export async function uploadImageBuffer(buffer: Buffer, folder: string) {
       }
     );
 
-    stream.end(buffer);
+    stream.end(compressed);
   });
 }
 
