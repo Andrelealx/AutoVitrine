@@ -646,120 +646,183 @@ export function VehiclesPage() {
           ) : null}
         </div>
 
-        <form className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_1fr]" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                required
-                value={form.brand}
-                onChange={(event) => updateForm("brand", event.target.value)}
-                placeholder="Marca"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
-              <input
-                required
-                value={form.model}
-                onChange={(event) => updateForm("model", event.target.value)}
-                placeholder="Modelo"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
-              <input
-                required
-                type="number"
-                min={1950}
-                max={2100}
-                value={form.year}
-                onChange={(event) => updateForm("year", event.target.value)}
-                placeholder="Ano"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
-              <input
-                required
-                value={form.color}
-                onChange={(event) => updateForm("color", event.target.value)}
-                placeholder="Cor"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
-              <input
-                required
-                type="number"
-                min={0}
-                value={form.mileage}
-                onChange={(event) => updateForm("mileage", event.target.value)}
-                placeholder="KM"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
-              <input
-                required
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.price}
-                onChange={(event) => updateForm("price", event.target.value)}
-                placeholder="Preco"
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-              />
+        <form className="mt-4 grid gap-6 xl:grid-cols-[1.3fr_1fr]" onSubmit={handleSubmit}>
+          <div className="space-y-5">
 
-              <select
-                value={form.fuel}
-                onChange={(event) => updateForm("fuel", event.target.value as Vehicle["fuel"])}
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none"
-              >
-                {fuelOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            {/* Identificação */}
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Identificacao</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Marca <span className="text-red-400">*</span></span>
+                  <input
+                    required
+                    value={form.brand}
+                    onChange={(event) => updateForm("brand", event.target.value)}
+                    placeholder="Ex: Toyota, Honda, BMW"
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Modelo <span className="text-red-400">*</span></span>
+                  <input
+                    required
+                    value={form.model}
+                    onChange={(event) => updateForm("model", event.target.value)}
+                    placeholder="Ex: Corolla, Civic, X5"
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Ano de fabricacao <span className="text-red-400">*</span></span>
+                  <input
+                    required
+                    type="number"
+                    min={1950}
+                    max={2100}
+                    value={form.year}
+                    onChange={(event) => updateForm("year", event.target.value)}
+                    placeholder={String(new Date().getFullYear())}
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Cor <span className="text-red-400">*</span></span>
+                  <input
+                    required
+                    value={form.color}
+                    onChange={(event) => updateForm("color", event.target.value)}
+                    placeholder="Ex: Prata, Preto, Branco"
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                  />
+                </label>
+              </div>
+            </fieldset>
 
-              <select
-                value={form.transmission}
-                onChange={(event) => updateForm("transmission", event.target.value as Vehicle["transmission"])}
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none"
-              >
-                {transmissionOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            {/* Ficha técnica */}
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Ficha tecnica</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Combustivel</span>
+                  <select
+                    value={form.fuel}
+                    onChange={(event) => updateForm("fuel", event.target.value as Vehicle["fuel"])}
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none"
+                  >
+                    {fuelOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Cambio</span>
+                  <select
+                    value={form.transmission}
+                    onChange={(event) => updateForm("transmission", event.target.value as Vehicle["transmission"])}
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none"
+                  >
+                    {transmissionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Quilometragem <span className="text-red-400">*</span></span>
+                  <div className="relative">
+                    <input
+                      required
+                      type="number"
+                      min={0}
+                      value={form.mileage}
+                      onChange={(event) => updateForm("mileage", event.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/15 bg-base-950 py-2.5 pl-4 pr-12 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                    />
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-zinc-500">km</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-600">Digite 0 para veiculo zero km</p>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Preco de venda <span className="text-red-400">*</span></span>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-500">R$</span>
+                    <input
+                      required
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={form.price}
+                      onChange={(event) => updateForm("price", event.target.value)}
+                      placeholder="0,00"
+                      className="w-full rounded-xl border border-white/15 bg-base-950 py-2.5 pl-10 pr-4 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                    />
+                  </div>
+                  <p className="text-[11px] text-zinc-600">Valor que aparece na vitrine para o cliente</p>
+                </label>
+              </div>
+            </fieldset>
 
-              <select
-                value={form.status}
-                onChange={(event) => updateForm("status", event.target.value as Vehicle["status"])}
-                className="rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none"
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            {/* Status e visibilidade */}
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Status e visibilidade</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Status na vitrine</span>
+                  <select
+                    value={form.status}
+                    onChange={(event) => updateForm("status", event.target.value as Vehicle["status"])}
+                    className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none"
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-zinc-600">Somente "Disponivel" aparece na vitrine publica</p>
+                </label>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-zinc-400">Destaque</span>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-base-950/60 px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={form.featured}
+                      onChange={(event) => updateForm("featured", event.target.checked)}
+                      className="h-4 w-4 accent-yellow-400"
+                    />
+                    <div>
+                      <p className="text-sm text-zinc-200">Marcar como destaque</p>
+                      <p className="text-[11px] text-zinc-500">Aparece na secao de destaques da vitrine</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </fieldset>
 
-              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-base-950/60 px-4 py-3 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={form.featured}
-                  onChange={(event) => updateForm("featured", event.target.checked)}
+            {/* Descricao e opcionais */}
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Descricao e opcionais</legend>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-zinc-400">Descricao do veiculo <span className="text-red-400">*</span></span>
+                <textarea
+                  required
+                  value={form.description}
+                  onChange={(event) => updateForm("description", event.target.value)}
+                  placeholder="Descreva o estado do veiculo, historico de manutencao, diferenciais..."
+                  className="min-h-[110px] w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
                 />
-                Marcar como destaque
               </label>
-            </div>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-zinc-400">Itens opcionais / acessorios</span>
+                <input
+                  value={form.optionalItems}
+                  onChange={(event) => updateForm("optionalItems", event.target.value)}
+                  placeholder="Ex: teto solar, camera 360, couro, multimidia"
+                  className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-2.5 text-sm text-zinc-100 outline-none ring-gold-300 placeholder:text-zinc-600 transition focus:ring"
+                />
+                <p className="text-[11px] text-zinc-600">Separe cada item por virgula</p>
+              </label>
+            </fieldset>
 
-            <textarea
-              required
-              value={form.description}
-              onChange={(event) => updateForm("description", event.target.value)}
-              placeholder="Descricao detalhada"
-              className="min-h-[120px] w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-            />
-
-            <input
-              value={form.optionalItems}
-              onChange={(event) => updateForm("optionalItems", event.target.value)}
-              placeholder="Opcionais separados por virgula (ex: teto solar, camera 360, couro)"
-              className="w-full rounded-xl border border-white/15 bg-base-950 px-4 py-3 text-sm outline-none ring-gold-300 transition focus:ring"
-            />
           </div>
           <aside className="space-y-4">
             <div
