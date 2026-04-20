@@ -1,9 +1,12 @@
 ﻿import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, Loader2, Search, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
+import { Camera, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
 import { UpgradeModal } from "../../components/billing/UpgradeModal";
+import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { api } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import { PlanUsage, Vehicle, VehicleImage } from "../../lib/types";
+import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 type VehiclesResponse = {
   items: Vehicle[];
@@ -117,6 +120,10 @@ function normalizeImages(images: VehicleImagePayload[]) {
 }
 
 export function VehiclesPage() {
+  const toast = useToast();
+  const { user } = useAuth();
+  const storeSlug = user?.store?.slug;
+
   const [vehiclesData, setVehiclesData] = useState<VehiclesResponse | null>(null);
   const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,9 +144,10 @@ export function VehiclesPage() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [isDraggingUpload, setIsDraggingUpload] = useState(false);
 
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [upgradeModalMessage, setUpgradeModalMessage] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ vehicleId: string; label: string } | null>(null);
+  const [confirmDeleteImage, setConfirmDeleteImage] = useState<string | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingImagesRef = useRef<PendingImage[]>([]);
@@ -186,7 +194,7 @@ export function VehiclesPage() {
 
       setVehiclesData(response.data);
     } catch {
-      setError("Nao foi possivel carregar o estoque.");
+      toast.error("Nao foi possivel carregar o estoque.");
     } finally {
       setLoading(false);
     }
@@ -252,7 +260,7 @@ export function VehiclesPage() {
     });
 
     if (availablePendingSlots <= 0) {
-      setError("Voce atingiu o limite de fotos para este veiculo no plano atual.");
+      toast.error("Voce atingiu o limite de fotos para este veiculo no plano atual.");
       return;
     }
 
@@ -270,11 +278,10 @@ export function VehiclesPage() {
         reasons.push(`${omittedByLimit} arquivo(s) ignorado(s) por limite de plano/requisicao`);
       }
 
-      setError(reasons.join(" | "));
+      toast.error(reasons.join(" | "));
       return;
     }
 
-    setError(null);
   }
 
   function onFileInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -309,16 +316,15 @@ export function VehiclesPage() {
 
     if (statusCode === 402 && details?.code === "PLAN_LIMIT_REACHED") {
       setUpgradeModalMessage(typedError.response?.data?.message || fallbackMessage);
-      setError(null);
       return;
     }
 
     if (statusCode === 423 && details?.code === "STORE_SUSPENDED") {
-      setError("A loja esta suspensa. Operacoes de escrita estao bloqueadas.");
+      toast.error("A loja esta suspensa. Operacoes de escrita estao bloqueadas.");
       return;
     }
 
-    setError(typedError.response?.data?.message || fallbackMessage);
+    toast.error(typedError.response?.data?.message || fallbackMessage);
   }
 
   async function refreshVehiclesFromFirstPage() {
@@ -333,8 +339,6 @@ export function VehiclesPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
-    setError(null);
-    setMessage(null);
 
     const optionalItems = form.optionalItems
       .split(",")
@@ -369,7 +373,7 @@ export function VehiclesPage() {
           });
         }
 
-        setMessage("Veiculo atualizado com sucesso.");
+        toast.success("Veiculo atualizado com sucesso.");
       } else {
         const fd = new FormData();
         fd.append("brand", form.brand);
@@ -392,7 +396,7 @@ export function VehiclesPage() {
           }
         });
 
-        setMessage("Veiculo cadastrado com sucesso.");
+        toast.success("Veiculo cadastrado com sucesso.");
       }
 
       resetEditor();
@@ -406,7 +410,6 @@ export function VehiclesPage() {
 
   async function startEdit(vehicleId: string) {
     setLoadingEditorVehicle(true);
-    setError(null);
 
     try {
       const response = await api.get<Vehicle>(`/vehicles/${vehicleId}`);
@@ -424,13 +427,9 @@ export function VehiclesPage() {
   }
 
   async function removeVehicle(id: string) {
-    if (!window.confirm("Deseja realmente remover este veiculo? Esta acao nao pode ser desfeita.")) {
-      return;
-    }
-
     try {
       await api.delete(`/vehicles/${id}`);
-      setMessage("Veiculo removido com sucesso.");
+      toast.success("Veiculo removido com sucesso.");
 
       if (editingVehicleId === id) {
         resetEditor();
@@ -439,7 +438,39 @@ export function VehiclesPage() {
       await Promise.all([loadVehicles(page, search, statusFilter), loadPlanUsage()]);
     } catch (err) {
       handleApiError(err, "Falha ao remover veiculo.");
+    } finally {
+      setConfirmDelete(null);
     }
+  }
+
+  function duplicateVehicle(vehicle: Vehicle) {
+    setForm({
+      brand: vehicle.brand,
+      model: vehicle.model,
+      year: String(vehicle.year),
+      color: vehicle.color,
+      mileage: String(vehicle.mileage),
+      fuel: vehicle.fuel,
+      transmission: vehicle.transmission,
+      price: String(vehicle.price),
+      description: vehicle.description,
+      optionalItems: vehicle.optionalItems.join(", "),
+      status: "AVAILABLE",
+      featured: false
+    });
+    setEditingVehicleId(null);
+    setEditingVehicle(null);
+    clearPendingImages();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.info("Dados copiados. Ajuste o que precisar e salve como novo veiculo.");
+  }
+
+  function copyVehicleLink(vehicle: Vehicle) {
+    if (!storeSlug) return;
+    const url = `${window.location.origin}/loja/${storeSlug}/veiculos/${vehicle.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Link do veiculo copiado!");
+    });
   }
   function syncVehicleImages(vehicleId: string, images: VehicleImage[]) {
     setEditingVehicle((prev) => (prev && prev.id === vehicleId ? { ...prev, images } : prev));
@@ -462,7 +493,6 @@ export function VehiclesPage() {
     }
 
     setProcessingImageId(imageId);
-    setError(null);
 
     try {
       const response = await api.patch<{ images: VehicleImagePayload[] }>(
@@ -470,7 +500,7 @@ export function VehiclesPage() {
       );
       const images = normalizeImages(response.data.images);
       syncVehicleImages(editingVehicleId, images);
-      setMessage("Capa atualizada.");
+      toast.success("Capa atualizada.");
     } catch (err) {
       handleApiError(err, "Nao foi possivel definir a capa.");
     } finally {
@@ -479,26 +509,20 @@ export function VehiclesPage() {
   }
 
   async function removeVehicleImage(imageId: string) {
-    if (!editingVehicleId) {
-      return;
-    }
-
-    if (!window.confirm("Remover esta imagem?")) {
-      return;
-    }
+    if (!editingVehicleId) return;
 
     setProcessingImageId(imageId);
-    setError(null);
 
     try {
       const response = await api.delete<{ images: VehicleImagePayload[] }>(`/vehicles/${editingVehicleId}/images/${imageId}`);
       const images = normalizeImages(response.data.images);
       syncVehicleImages(editingVehicleId, images);
-      setMessage("Imagem removida.");
+      toast.success("Imagem removida.");
     } catch (err) {
       handleApiError(err, "Nao foi possivel remover a imagem.");
     } finally {
       setProcessingImageId(null);
+      setConfirmDeleteImage(null);
     }
   }
 
@@ -508,7 +532,6 @@ export function VehiclesPage() {
     }
 
     setUpdatingVehicleId(vehicle.id);
-    setError(null);
 
     try {
       const response = await api.put<{ vehicle: Vehicle }>(`/vehicles/${vehicle.id}`, {
@@ -532,7 +555,7 @@ export function VehiclesPage() {
         setForm((prev) => ({ ...prev, status: updated.status }));
       }
 
-      setMessage("Status atualizado.");
+      toast.success("Status atualizado.");
     } catch (err) {
       handleApiError(err, "Falha ao atualizar status.");
     } finally {
@@ -542,7 +565,6 @@ export function VehiclesPage() {
 
   async function toggleVehicleFeatured(vehicle: Vehicle) {
     setUpdatingVehicleId(vehicle.id);
-    setError(null);
 
     try {
       const response = await api.put<{ vehicle: Vehicle }>(`/vehicles/${vehicle.id}`, {
@@ -566,7 +588,7 @@ export function VehiclesPage() {
         setForm((prev) => ({ ...prev, featured: updated.featured }));
       }
 
-      setMessage(updated.featured ? "Veiculo marcado como destaque." : "Destaque removido.");
+      toast.success(updated.featured ? "Veiculo marcado como destaque." : "Destaque removido.");
     } catch (err) {
       handleApiError(err, "Falha ao atualizar destaque.");
     } finally {
@@ -961,7 +983,7 @@ export function VehiclesPage() {
                           <button
                             type="button"
                             disabled={processingImageId === image.id}
-                            onClick={() => removeVehicleImage(image.id)}
+                            onClick={() => setConfirmDeleteImage(image.id)}
                             className="rounded-full border border-red-300/30 px-2 py-1 text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
                           >
                             {processingImageId === image.id ? "Removendo..." : "Excluir"}
@@ -999,8 +1021,6 @@ export function VehiclesPage() {
           </div>
         </form>
 
-        {message ? <p className="mt-4 text-sm text-green-300">{message}</p> : null}
-        {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
       </section>
       <section className="rounded-2xl border border-white/10 bg-base-900 p-5">
         <div className="flex flex-wrap items-end gap-3">
@@ -1061,47 +1081,82 @@ export function VehiclesPage() {
         </div>
 
         {loading ? (
-          <p className="mt-5 text-sm text-zinc-400">Carregando estoque...</p>
+          <div className="mt-5 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/5" />
+            ))}
+          </div>
         ) : vehiclesData && vehiclesData.items.length > 0 ? (
           <div className="mt-5 space-y-3">
             {vehiclesData.items.map((vehicle) => {
               const cover = vehicle.images.find((image) => image.isCover) || vehicle.images[0];
               const isUpdating = updatingVehicleId === vehicle.id;
+              const fuelLabel = fuelOptions.find((f) => f.value === vehicle.fuel)?.label ?? vehicle.fuel;
+              const transmissionLabel = transmissionOptions.find((t) => t.value === vehicle.transmission)?.label ?? vehicle.transmission;
 
               return (
-                <article key={vehicle.id} className="rounded-2xl border border-white/10 bg-base-950/50 p-4">
+                <article key={vehicle.id} className="rounded-2xl border border-white/10 bg-base-950/50 p-4 transition hover:border-white/20">
                   <div className="flex flex-col gap-4 md:flex-row">
-                    <img
-                      src={cover?.url || "https://placehold.co/240x140?text=Sem+foto"}
-                      alt={vehicle.model}
-                      className="h-32 w-full rounded-xl object-cover md:w-52"
-                    />
-
-                    <div className="flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-zinc-100">
-                          {vehicle.brand} {vehicle.model}
-                        </h3>
-                        <span className={`rounded-full border px-2 py-1 text-xs ${getStatusBadge(vehicle.status)}`}>
-                          {statusOptions.find((option) => option.value === vehicle.status)?.label || vehicle.status}
+                    {/* Foto */}
+                    <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-xl md:w-52">
+                      <img
+                        src={cover?.url || "https://placehold.co/240x140?text=Sem+foto"}
+                        alt={vehicle.model}
+                        className="h-full w-full object-cover"
+                      />
+                      {vehicle.images.length > 1 && (
+                        <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                          +{vehicle.images.length - 1} fotos
                         </span>
-                        {vehicle.featured ? (
-                          <span className="rounded-full bg-gold-400/20 px-2 py-1 text-xs text-gold-200">Destaque</span>
-                        ) : null}
-                      </div>
-
-                      <p className="text-sm text-zinc-400">
-                        {vehicle.year} - {vehicle.mileage.toLocaleString("pt-BR")} km - {vehicle.transmission}
-                      </p>
-                      <p className="text-xl font-semibold text-gold-300">{formatCurrency(Number(vehicle.price))}</p>
-                      <p className="line-clamp-2 text-sm text-zinc-400">{vehicle.description}</p>
-                      <p className="text-xs text-zinc-500">
-                        {vehicle.images.length} foto(s) cadastrada(s)
-                        {vehicle.optionalItems.length > 0 ? ` | Opcionais: ${vehicle.optionalItems.slice(0, 3).join(", ")}` : ""}
-                      </p>
+                      )}
                     </div>
 
-                    <div className="space-y-2 md:w-56">
+                    {/* Info */}
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-semibold text-zinc-100">
+                          {vehicle.brand} {vehicle.model} {vehicle.year}
+                        </h3>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${getStatusBadge(vehicle.status)}`}>
+                          {statusOptions.find((o) => o.value === vehicle.status)?.label ?? vehicle.status}
+                        </span>
+                        {vehicle.featured && (
+                          <span className="rounded-full bg-gold-400/20 px-2 py-0.5 text-xs text-gold-200">
+                            Destaque
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                        <span>{vehicle.mileage.toLocaleString("pt-BR")} km</span>
+                        <span>{fuelLabel}</span>
+                        <span>{transmissionLabel}</span>
+                        <span>{vehicle.color}</span>
+                      </div>
+
+                      <p className="text-xl font-semibold text-gold-300">{formatCurrency(Number(vehicle.price))}</p>
+
+                      <p className="line-clamp-2 text-sm text-zinc-400">{vehicle.description}</p>
+
+                      {vehicle.optionalItems.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {vehicle.optionalItems.slice(0, 4).map((item) => (
+                            <span key={item} className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
+                              {item}
+                            </span>
+                          ))}
+                          {vehicle.optionalItems.length > 4 && (
+                            <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-500">
+                              +{vehicle.optionalItems.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ações */}
+                    <div className="flex flex-col gap-2 md:w-52">
+                      {/* Status rápido */}
                       <select
                         value={vehicle.status}
                         disabled={isUpdating}
@@ -1115,6 +1170,7 @@ export function VehiclesPage() {
                         ))}
                       </select>
 
+                      {/* Destaque */}
                       <button
                         type="button"
                         disabled={isUpdating}
@@ -1122,20 +1178,57 @@ export function VehiclesPage() {
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gold-300/30 px-3 py-2 text-sm text-gold-200 transition hover:bg-gold-500/10 disabled:opacity-60"
                       >
                         {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />}
-                        {vehicle.featured ? "Remover destaque" : "Marcar destaque"}
+                        {vehicle.featured ? "Remover destaque" : "Destaque"}
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => startEdit(vehicle.id)}
-                        className="w-full rounded-xl border border-white/20 px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
-                      >
-                        Editar
-                      </button>
+                      {/* Copiar link + vitrine */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyVehicleLink(vehicle)}
+                          title="Copiar link do veiculo"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5"
+                        >
+                          <Copy size={13} />
+                          Link
+                        </button>
+                        {storeSlug && (
+                          <a
+                            href={`/loja/${storeSlug}/veiculos/${vehicle.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ver na vitrine"
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs text-zinc-300 transition hover:bg-white/5"
+                          >
+                            <ExternalLink size={13} />
+                            Vitrine
+                          </a>
+                        )}
+                      </div>
 
+                      {/* Editar + Duplicar */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(vehicle.id)}
+                          className="rounded-xl border border-white/20 px-3 py-2 text-sm text-zinc-200 hover:bg-white/5"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => duplicateVehicle(vehicle)}
+                          title="Duplicar este veiculo"
+                          className="rounded-xl border border-white/15 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
+                        >
+                          Duplicar
+                        </button>
+                      </div>
+
+                      {/* Excluir */}
                       <button
                         type="button"
-                        onClick={() => removeVehicle(vehicle.id)}
+                        onClick={() => setConfirmDelete({ vehicleId: vehicle.id, label: `${vehicle.brand} ${vehicle.model} ${vehicle.year}` })}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-300 hover:bg-red-400/10"
                       >
                         <Trash2 size={14} />
@@ -1177,6 +1270,26 @@ export function VehiclesPage() {
         open={Boolean(upgradeModalMessage)}
         message={upgradeModalMessage || ""}
         onClose={() => setUpgradeModalMessage(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(confirmDelete)}
+        title="Excluir veiculo?"
+        description={confirmDelete ? `"${confirmDelete.label}" sera removido permanentemente, incluindo todas as fotos.` : ""}
+        confirmLabel="Sim, excluir"
+        danger
+        onConfirm={() => confirmDelete && removeVehicle(confirmDelete.vehicleId)}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(confirmDeleteImage)}
+        title="Remover imagem?"
+        description="Esta imagem sera excluida permanentemente do veiculo."
+        confirmLabel="Remover"
+        danger
+        onConfirm={() => confirmDeleteImage && removeVehicleImage(confirmDeleteImage)}
+        onCancel={() => setConfirmDeleteImage(null)}
       />
     </div>
   );
