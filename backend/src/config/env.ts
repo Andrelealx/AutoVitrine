@@ -37,7 +37,10 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().default("no-reply@autovitrine.com"),
   SUPER_ADMIN_EMAIL: z.string().email().optional(),
-  SUPER_ADMIN_PASSWORD: z.string().min(8).optional()
+  SUPER_ADMIN_PASSWORD: z.string().min(8).optional(),
+  NFE_CERT_ENCRYPTION_KEY: z.string().length(64).optional(),
+  NFE_AMBIENTE: z.coerce.number().int().min(1).max(2).default(2),
+  NFE_EMAIL_REMETENTE: z.string().email().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);

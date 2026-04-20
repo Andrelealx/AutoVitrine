@@ -4,6 +4,7 @@ import storeRoutes from "./store.routes";
 import vehicleRoutes from "./vehicle.routes";
 import subscriptionRoutes from "./subscription.routes";
 import adminRoutes from "./admin.routes";
+import nfeRoutes from "./nfe.routes";
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/stores", storeRoutes);
 router.use("/vehicles", vehicleRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/admin", adminRoutes);
+router.use("/nfe", nfeRoutes);
 
 export default router;

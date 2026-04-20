@@ -6,6 +6,7 @@ import {
   CreditCard,
   ExternalLink,
   FileClock,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ const ownerLinks = [
   { to: "/dashboard", label: "Visao geral", icon: LayoutDashboard },
   { to: "/dashboard/veiculos", label: "Estoque", icon: CarFront },
   { to: "/dashboard/leads", label: "Leads", icon: MessageSquare },
+  { to: "/dashboard/fiscal", label: "NF-e Fiscal", icon: FileText },
   { to: "/dashboard/loja", label: "Personalizacao", icon: Settings },
   { to: "/dashboard/usuarios", label: "Equipe", icon: Users },
   { to: "/dashboard/assinatura", label: "Assinatura", icon: CreditCard }

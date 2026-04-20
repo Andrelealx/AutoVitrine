@@ -129,6 +129,8 @@ model Store {
   payments           Payment[]
   auditLogs          AuditLog[]
   storefrontViews    StorefrontView[]
+  lojaFiscal         LojaFiscal?
+  notasFiscais       NotaFiscal[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 }
@@ -149,8 +151,12 @@ model Vehicle {
   optionalItems String[]
   status        VehicleStatus    @default(AVAILABLE)
   featured      Boolean          @default(false)
+  plate         String?
+  renavam       String?
+  chassis       String?
   images        VehicleImage[]
   leads         Lead[]
+  notasFiscais  NotaFiscal[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -307,4 +313,57 @@ model StorefrontView {
 
   @@index([storeId, createdAt])
   @@unique([storeId, sessionId])
+}
+
+model LojaFiscal {
+  id               String   @id @default(cuid())
+  lojaId           String   @unique
+  loja             Store    @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  cnpj             String
+  ie               String
+  crt              Int      @default(1)
+  certificadoPfx   Bytes?
+  certificadoSenha String?
+  ambiente         Int      @default(2)
+  serie            Int      @default(1)
+  ultimaNNF        Int      @default(0)
+  logradouro       String   @default("")
+  numero           String   @default("")
+  bairro           String   @default("")
+  cMun             String   @default("")
+  xMun             String   @default("")
+  uf               String   @default("")
+  cep              String   @default("")
+  fone             String   @default("")
+  cUF              Int      @default(33)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model NotaFiscal {
+  id                  String    @id @default(cuid())
+  lojaId              String
+  loja                Store     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  veiculoId           String?
+  veiculo             Vehicle?  @relation(fields: [veiculoId], references: [id], onDelete: SetNull)
+  chaveAcesso         String    @unique
+  nNF                 Int
+  serie               Int
+  dhEmi               DateTime
+  nomeDestinatario    String
+  cpfCnpjDestinatario String
+  emailDestinatario   String?
+  valorTotal          Float
+  renavam             String?
+  chassi              String?
+  xmlEnviado          String    @db.Text
+  xmlAutorizado       String?   @db.Text
+  protocolo           String?
+  status              String    @default("pendente")
+  motivoErro          String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([lojaId, createdAt])
+  @@index([lojaId, status])
 }

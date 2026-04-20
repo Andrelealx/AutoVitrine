@@ -39,7 +39,10 @@ const createVehicleSchema = z.object({
     description: z.string().min(5),
     optionalItems: z.union([z.array(z.string()), z.string()]).optional(),
     status: z.nativeEnum(VehicleStatus).optional(),
-    featured: z.coerce.boolean().optional()
+    featured: z.coerce.boolean().optional(),
+    plate: z.string().min(7).max(8).optional(),
+    renavam: z.string().min(9).max(11).optional(),
+    chassis: z.string().min(17).max(17).optional()
   }),
   query: z.object({}).optional(),
   params: z.object({}).optional()
@@ -58,7 +61,10 @@ const updateVehicleSchema = z.object({
     description: z.string().min(5).optional(),
     optionalItems: z.union([z.array(z.string()), z.string()]).optional(),
     status: z.nativeEnum(VehicleStatus).optional(),
-    featured: z.coerce.boolean().optional()
+    featured: z.coerce.boolean().optional(),
+    plate: z.string().min(7).max(8).optional(),
+    renavam: z.string().min(9).max(11).optional(),
+    chassis: z.string().min(17).max(17).optional()
   }),
   query: z.object({}).optional(),
   params: z.object({
@@ -151,7 +157,10 @@ router.post("/", upload.array("images", 15), async (req, res, next) => {
         description: data.description,
         optionalItems,
         status: data.status || VehicleStatus.AVAILABLE,
-        featured: data.featured || false
+        featured: data.featured || false,
+        plate: data.plate ?? null,
+        renavam: data.renavam ?? null,
+        chassis: data.chassis ?? null
       }
     });
 

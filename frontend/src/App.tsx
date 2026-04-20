@@ -35,6 +35,9 @@ const SubscriptionPage = lazy(() =>
 const UsersPage = lazy(() =>
   import("./pages/dashboard/UsersPage").then((m) => ({ default: m.UsersPage }))
 );
+const FiscalPage = lazy(() =>
+  import("./pages/dashboard/FiscalPage").then((m) => ({ default: m.FiscalPage }))
+);
 
 // Admin — lazy loaded: usado por pouquíssimas pessoas
 const AdminOverviewPage = lazy(() =>
@@ -145,6 +148,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <UsersPage />
+              </Suspense>
+            )
+          },
+          {
+            path: "fiscal",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <FiscalPage />
               </Suspense>
             )
           }
