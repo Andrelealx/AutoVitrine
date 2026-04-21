@@ -196,16 +196,29 @@ async function soapPost(
   envelope: string,
   agente: https.Agent
 ): Promise<string> {
-  const response = await axios.post(url, envelope, {
-    headers: {
-      "Content-Type": "text/xml; charset=utf-8",
-      SOAPAction: soapAction
-    },
-    timeout: 30000,
-    maxBodyLength: Infinity,
-    httpsAgent: agente
-  });
-  return typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+  try {
+    const response = await axios.post(url, envelope, {
+      headers: {
+        "Content-Type": "text/xml; charset=utf-8",
+        SOAPAction: soapAction
+      },
+      timeout: 30000,
+      maxBodyLength: Infinity,
+      httpsAgent: agente,
+      validateStatus: () => true // captura qualquer status HTTP para analisar o body
+    });
+    const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+    if (response.status >= 400) {
+      throw new Error(`HTTP ${response.status}: ${body.slice(0, 300)}`);
+    }
+    return body;
+  } catch (err: any) {
+    if (err.response) {
+      const body = typeof err.response.data === "string" ? err.response.data : JSON.stringify(err.response.data);
+      throw new Error(`HTTP ${err.response.status}: ${body.slice(0, 300)}`);
+    }
+    throw err;
+  }
 }
 
 // ─── Envio para SEFAZ ─────────────────────────────────────────────────────────
