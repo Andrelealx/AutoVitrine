@@ -589,6 +589,56 @@ router.get("/notas/:id/danfe", async (req, res, next) => {
   }
 });
 
+// GET /api/nfe/notas/:id/danfe/preview — DANFE para qualquer status (sem protocolo)
+router.get("/notas/:id/danfe/preview", async (req, res, next) => {
+  try {
+    const nota = await prisma.notaFiscal.findFirst({
+      where: { id: req.params.id, lojaId: req.user!.storeId! }
+    });
+
+    if (!nota) throw new AppError("Nota fiscal não encontrada", 404);
+
+    const loja = await prisma.store.findUnique({ where: { id: req.user!.storeId! } });
+    const fiscal = await prisma.lojaFiscal.findUnique({ where: { lojaId: req.user!.storeId! } });
+
+    if (!loja || !fiscal) throw new AppError("Dados da loja não encontrados", 404);
+
+    const descMatch = nota.xmlEnviado.match(/<xProd>([^<]+)<\/xProd>/);
+    const descricao = descMatch?.[1] ?? "Veículo";
+    const placaMatch = nota.xmlEnviado.match(/<cProd>([^<]+)<\/cProd>/);
+    const placa = placaMatch?.[1] ?? "";
+
+    const pdfBuffer = await gerarDANFE({
+      chaveAcesso: nota.chaveAcesso,
+      nNF: nota.nNF,
+      serie: nota.serie,
+      dhEmi: nota.dhEmi,
+      protocolo: nota.protocolo ?? undefined,
+      nomeEmitente: loja.name,
+      cnpjEmitente: fiscal.cnpj,
+      ieEmitente: fiscal.ie,
+      enderecoEmitente: `${fiscal.logradouro}, ${fiscal.numero} - ${fiscal.bairro}, ${fiscal.xMun}/${fiscal.uf}`,
+      nomeDestinatario: nota.nomeDestinatario,
+      cpfCnpjDestinatario: nota.cpfCnpjDestinatario,
+      enderecoDestinatario: "",
+      descricaoProduto: descricao,
+      placa,
+      renavam: nota.renavam ?? undefined,
+      chassi: nota.chassi ?? undefined,
+      valorTotal: nota.valorTotal
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="DANFE_preview_NFe${nota.nNF}.pdf"`
+    );
+    return res.send(pdfBuffer);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // ─── Cancelamento ─────────────────────────────────────────────────────────────
 
 // POST /api/nfe/notas/:id/cancelar
