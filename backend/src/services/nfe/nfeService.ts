@@ -399,131 +399,296 @@ export async function gerarDANFE(dados: {
 }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({
-        size: "A4",
-        margin: 20,
-        info: { Title: `DANFE NF-e ${dados.nNF}` }
-      });
-
+      const doc = new PDFDocument({ size: "A4", margin: 0, info: { Title: `DANFE NF-e ${dados.nNF}` } });
       const chunks: Buffer[] = [];
-      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("data", (c: Buffer) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      const W = doc.page.width;
-      const gray = "#333333";
-      const light = "#666666";
+      const ML = 15, MT = 15;                 // margens esquerda/topo
+      const PW = doc.page.width - ML * 2;     // largura útil ≈ 565pt
+      const BK = "#000000";
+      const LB = "#888888";
 
-      // ── Cabeçalho ──────────────────────────────────────────────────────────
-      doc.rect(20, 20, W - 40, 80).stroke();
+      // helpers
+      const box = (x: number, y: number, w: number, h: number) =>
+        doc.rect(x, y, w, h).stroke(BK);
 
-      doc.fontSize(16).fillColor(gray).text("DANFE", 30, 30);
-      doc.fontSize(9).fillColor(light)
-        .text("Documento Auxiliar da Nota Fiscal Eletrônica", 30, 50);
-      doc.fontSize(8)
-        .text("Entrada: [ ]  Saída: [x]", 30, 65);
+      const label = (txt: string, x: number, y: number, w = 200) =>
+        doc.font("Helvetica").fontSize(6).fillColor(LB).text(txt, x + 2, y + 2, { width: w - 4, lineBreak: false });
 
-      // Caixa NF-e número e série
-      doc.rect(W - 200, 20, 180, 80).stroke();
-      doc.fontSize(8).fillColor(gray)
-        .text("NF-e", W - 190, 30)
-        .text(`Nº ${String(dados.nNF).padStart(9, "0")}`, W - 190, 42)
-        .text(`Série ${dados.serie}`, W - 190, 54);
+      const value = (txt: string, x: number, y: number, w = 200, opts: object = {}) =>
+        doc.font("Helvetica-Bold").fontSize(8).fillColor(BK).text(txt, x + 2, y + 10, { width: w - 4, lineBreak: false, ...opts });
 
+      const cell = (lbl: string, val: string, x: number, y: number, w: number, h: number, opts: object = {}) => {
+        box(x, y, w, h);
+        label(lbl, x, y, w);
+        value(val, x, y, w, opts);
+      };
+
+      const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 1 — CABEÇALHO (emitente | DANFE | NF-e)
+      // ══════════════════════════════════════════════════════════════════════
+      let y = MT;
+      const H1 = 90;
+      const wEmit = Math.round(PW * 0.42);
+      const wDanfe = Math.round(PW * 0.16);
+      const wNFe = PW - wEmit - wDanfe;
+
+      // Caixa emitente
+      box(ML, y, wEmit, H1);
+      doc.font("Helvetica-Bold").fontSize(10).fillColor(BK)
+        .text(dados.nomeEmitente.toUpperCase(), ML + 4, y + 6, { width: wEmit - 8 });
+      doc.font("Helvetica").fontSize(7).fillColor(BK)
+        .text(dados.enderecoEmitente, ML + 4, y + 22, { width: wEmit - 8 })
+        .text(`CNPJ: ${formatDoc(dados.cnpjEmitente)}`, ML + 4, y + 42)
+        .text(`IE: ${dados.ieEmitente}`, ML + 4, y + 52);
+
+      // Caixa DANFE central
+      const xD = ML + wEmit;
+      box(xD, y, wDanfe, H1);
+      doc.font("Helvetica-Bold").fontSize(14).fillColor(BK)
+        .text("DANFE", xD, y + 8, { width: wDanfe, align: "center", lineBreak: false });
+      doc.font("Helvetica").fontSize(6).fillColor(BK)
+        .text("Documento Auxiliar da", xD, y + 26, { width: wDanfe, align: "center", lineBreak: false })
+        .text("Nota Fiscal Eletrônica", xD, y + 33, { width: wDanfe, align: "center", lineBreak: false });
+      doc.font("Helvetica").fontSize(7).fillColor(BK)
+        .text("0 - ENTRADA", xD + 4, y + 48)
+        .text("1 - SAÍDA", xD + 4, y + 58);
+      // quadrado marcado
+      doc.rect(xD + 4, y + 56, 8, 8).stroke();
+      doc.font("Helvetica-Bold").fontSize(8).fillColor(BK).text("1", xD + 6, y + 57);
+
+      // Caixa NF-e
+      const xN = xD + wDanfe;
+      box(xN, y, wNFe, H1);
+      label("NF-e", xN, y, wNFe);
+      doc.font("Helvetica-Bold").fontSize(12).fillColor(BK)
+        .text(`Nº ${String(dados.nNF).padStart(9, "0")}`, xN + 2, y + 12, { width: wNFe - 4, align: "center", lineBreak: false });
+      doc.font("Helvetica").fontSize(8).fillColor(BK)
+        .text(`Série: ${dados.serie}`, xN + 2, y + 28, { width: wNFe - 4, align: "center", lineBreak: false });
+      const dtEmi = dados.dhEmi.toLocaleDateString("pt-BR");
+      const hrEmi = dados.dhEmi.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      doc.font("Helvetica").fontSize(7).fillColor(BK)
+        .text(`Emissão: ${dtEmi}  ${hrEmi}`, xN + 4, y + 42);
       if (dados.protocolo) {
-        doc.fontSize(7).fillColor(light)
-          .text(`Protocolo: ${dados.protocolo}`, W - 190, 66)
-          .text(`Data: ${dados.dhEmi.toLocaleDateString("pt-BR")}`, W - 190, 78);
+        doc.font("Helvetica").fontSize(6).fillColor(BK)
+          .text(`Protocolo: ${dados.protocolo}`, xN + 4, y + 56, { width: wNFe - 8 });
+      } else {
+        doc.font("Helvetica").fontSize(6).fillColor("#CC0000")
+          .text("SEM PROTOCOLO - NÃO AUTORIZADA", xN + 4, y + 56, { width: wNFe - 8 });
       }
 
-      // ── Emitente ───────────────────────────────────────────────────────────
-      let y = 115;
-      doc.rect(20, y, W - 40, 1).fill(gray);
-      y += 8;
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 2 — CHAVE DE ACESSO
+      // ══════════════════════════════════════════════════════════════════════
+      y += H1;
+      const H2 = 28;
+      box(ML, y, PW, H2);
+      label("CHAVE DE ACESSO", ML, y, PW);
+      doc.font("Helvetica-Bold").fontSize(8).fillColor(BK)
+        .text(formatChave(dados.chaveAcesso), ML + 2, y + 12, { width: PW - 4, align: "center", characterSpacing: 1 });
 
-      doc.fontSize(9).fillColor(gray).text("EMITENTE", 30, y, { underline: true });
-      y += 15;
-      doc.fontSize(8).fillColor(gray)
-        .text(dados.nomeEmitente, 30, y)
-        .text(`CNPJ: ${formatDoc(dados.cnpjEmitente)}   IE: ${dados.ieEmitente}`, 30, y + 12)
-        .text(dados.enderecoEmitente, 30, y + 24);
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 3 — NATUREZA DA OPERAÇÃO / PROTOCOLO
+      // ══════════════════════════════════════════════════════════════════════
+      y += H2;
+      const H3 = 24;
+      const wNat = Math.round(PW * 0.6);
+      const wProt = PW - wNat;
+      cell("NATUREZA DA OPERAÇÃO", "SAÍDA DE VEÍCULO - VENDA", ML, y, wNat, H3);
+      cell("PROTOCOLO DE AUTORIZAÇÃO DE USO", dados.protocolo ?? "PENDENTE", ML + wNat, y, wProt, H3);
 
-      // ── Destinatário ───────────────────────────────────────────────────────
-      y += 55;
-      doc.rect(20, y, W - 40, 1).fill(gray);
-      y += 8;
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 4 — DADOS DO EMITENTE (IE, CNPJ, CRT)
+      // ══════════════════════════════════════════════════════════════════════
+      y += H3;
+      const H4 = 22;
+      const w4 = Math.round(PW / 3);
+      cell("INSCRIÇÃO ESTADUAL", dados.ieEmitente, ML, y, w4, H4);
+      cell("CNPJ", formatDoc(dados.cnpjEmitente), ML + w4, y, w4, H4);
+      cell("CRT", "1 - Simples Nacional", ML + w4 * 2, y, PW - w4 * 2, H4);
 
-      doc.fontSize(9).fillColor(gray).text("DESTINATÁRIO / REMETENTE", 30, y, { underline: true });
-      y += 15;
-      doc.fontSize(8).fillColor(gray)
-        .text(dados.nomeDestinatario, 30, y)
-        .text(`CPF/CNPJ: ${formatDoc(dados.cpfCnpjDestinatario)}`, 30, y + 12)
-        .text(dados.enderecoDestinatario, 30, y + 24);
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 5 — DESTINATÁRIO
+      // ══════════════════════════════════════════════════════════════════════
+      y += H4;
+      // Header strip
+      box(ML, y, PW, 14);
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(BK)
+        .text("DESTINATÁRIO / REMETENTE", ML + 2, y + 3);
+      y += 14;
 
-      // ── Produto / Serviço ─────────────────────────────────────────────────
-      y += 55;
-      doc.rect(20, y, W - 40, 1).fill(gray);
-      y += 8;
+      const H5a = 22, H5b = 22;
+      const wNome = Math.round(PW * 0.55);
+      const wCpf = Math.round(PW * 0.28);
+      const wDt = PW - wNome - wCpf;
+      cell("NOME / RAZÃO SOCIAL", dados.nomeDestinatario.toUpperCase(), ML, y, wNome, H5a);
+      cell("CPF / CNPJ", formatDoc(dados.cpfCnpjDestinatario), ML + wNome, y, wCpf, H5a);
+      cell("DATA DE EMISSÃO", dtEmi, ML + wNome + wCpf, y, wDt, H5a);
+      y += H5a;
 
-      doc.fontSize(9).fillColor(gray).text("DADOS DOS PRODUTOS / SERVIÇOS", 30, y, { underline: true });
-      y += 15;
+      cell("ENDEREÇO", dados.enderecoDestinatario || "—", ML, y, Math.round(PW * 0.5), H5b);
+      cell("MUNICÍPIO", "Rio de Janeiro", ML + Math.round(PW * 0.5), y, Math.round(PW * 0.25), H5b);
+      cell("UF", "RJ", ML + Math.round(PW * 0.75), y, Math.round(PW * 0.1), H5b);
+      cell("CEP", "—", ML + Math.round(PW * 0.85), y, PW - Math.round(PW * 0.85), H5b);
 
-      // Cabeçalho da tabela
-      doc.fontSize(7).fillColor(light);
-      const cols = [30, 200, 310, 380, 450, 510];
-      const headers = ["CÓDIGO", "DESCRIÇÃO", "NCM", "CFOP", "QTD", "VALOR"];
-      headers.forEach((h, i) => doc.text(h, cols[i], y));
-      y += 12;
-      doc.rect(20, y, W - 40, 0.5).fill(light);
-      y += 4;
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 6 — CÁLCULO DO IMPOSTO
+      // ══════════════════════════════════════════════════════════════════════
+      y += H5b;
+      box(ML, y, PW, 14);
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(BK)
+        .text("CÁLCULO DO IMPOSTO", ML + 2, y + 3);
+      y += 14;
+
+      const H6 = 22;
+      const iw = Math.round(PW / 6);
+      cell("BASE CÁLC. ICMS", "0,00", ML, y, iw, H6, { align: "right" });
+      cell("VALOR ICMS", "0,00", ML + iw, y, iw, H6, { align: "right" });
+      cell("BASE CÁLC. ICMS-ST", "0,00", ML + iw * 2, y, iw, H6, { align: "right" });
+      cell("VALOR ICMS-ST", "0,00", ML + iw * 3, y, iw, H6, { align: "right" });
+      cell("VALOR IPI", "0,00", ML + iw * 4, y, iw, H6, { align: "right" });
+      cell("VALOR TOTAL NF", `R$ ${fmt(dados.valorTotal)}`, ML + iw * 5, y, PW - iw * 5, H6, { align: "right" });
+      y += H6;
+
+      const iw2 = Math.round(PW / 5);
+      cell("VALOR DO FRETE", "0,00", ML, y, iw2, H6, { align: "right" });
+      cell("VALOR DO SEGURO", "0,00", ML + iw2, y, iw2, H6, { align: "right" });
+      cell("DESCONTO", "0,00", ML + iw2 * 2, y, iw2, H6, { align: "right" });
+      cell("OUTRAS DESP. ACESS.", "0,00", ML + iw2 * 3, y, iw2, H6, { align: "right" });
+      cell("VALOR TOTAL DOS PRODUTOS", `R$ ${fmt(dados.valorTotal)}`, ML + iw2 * 4, y, PW - iw2 * 4, H6, { align: "right" });
+
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 7 — TRANSPORTADOR / VOLUMES
+      // ══════════════════════════════════════════════════════════════════════
+      y += H6;
+      box(ML, y, PW, 14);
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(BK)
+        .text("TRANSPORTADOR / VOLUMES TRANSPORTADOS", ML + 2, y + 3);
+      y += 14;
+
+      const H7 = 22;
+      const wT1 = Math.round(PW * 0.4), wT2 = Math.round(PW * 0.15), wT3 = Math.round(PW * 0.15);
+      cell("RAZÃO SOCIAL", "A CARGO DO DESTINATÁRIO", ML, y, wT1, H7);
+      cell("FRETE POR CONTA", "9 - Sem Frete", ML + wT1, y, wT2, H7);
+      cell("CÓDIGO ANTT", "—", ML + wT1 + wT2, y, wT3, H7);
+      cell("PLACA DO VEÍCULO", dados.placa, ML + wT1 + wT2 + wT3, y, PW - wT1 - wT2 - wT3, H7);
+
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 8 — DADOS DOS PRODUTOS / SERVIÇOS
+      // ══════════════════════════════════════════════════════════════════════
+      y += H7;
+      box(ML, y, PW, 14);
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(BK)
+        .text("DADOS DOS PRODUTOS / SERVIÇOS", ML + 2, y + 3);
+      y += 14;
+
+      // Colunas da tabela de produtos
+      const tCols = [
+        { label: "CÓD.", w: 52 },
+        { label: "DESCRIÇÃO DO PRODUTO / SERVIÇO", w: 155 },
+        { label: "NCM/SH", w: 44 },
+        { label: "CST", w: 28 },
+        { label: "CFOP", w: 30 },
+        { label: "UN", w: 20 },
+        { label: "QTD.", w: 28 },
+        { label: "VL. UNIT.", w: 48 },
+        { label: "VL. TOTAL", w: 55 },
+        { label: "BC ICMS", w: 40 },
+        { label: "VL. ICMS", w: 40 },
+        { label: "VL. IPI", w: 30 }
+      ];
+      const totalW = tCols.reduce((s, c) => s + c.w, 0);
+      // Ajusta última coluna para fechar exatamente
+      tCols[tCols.length - 1].w += PW - totalW;
+
+      // Header da tabela
+      const HT = 16;
+      let xc = ML;
+      tCols.forEach(col => {
+        box(xc, y, col.w, HT);
+        doc.font("Helvetica").fontSize(5.5).fillColor(LB)
+          .text(col.label, xc + 1, y + 2, { width: col.w - 2, lineBreak: false });
+        xc += col.w;
+      });
+      y += HT;
 
       // Linha do produto
-      doc.fontSize(7).fillColor(gray);
-      const vals = [
+      const HR = 22;
+      const rowVals = [
         dados.placa,
-        dados.descricaoProduto.slice(0, 60),
+        dados.descricaoProduto.slice(0, 45),
         "87032310",
+        "102",
         "5114",
+        "UN",
         "1",
-        `R$ ${dados.valorTotal.toFixed(2)}`
+        fmt(dados.valorTotal),
+        fmt(dados.valorTotal),
+        "0,00",
+        "0,00",
+        "0,00"
       ];
-      vals.forEach((v, i) => doc.text(v, cols[i], y));
-      y += 20;
+      xc = ML;
+      tCols.forEach((col, i) => {
+        box(xc, y, col.w, HR);
+        doc.font("Helvetica").fontSize(7).fillColor(BK)
+          .text(rowVals[i], xc + 2, y + 5, { width: col.w - 4, lineBreak: false });
+        xc += col.w;
+      });
+      y += HR;
 
-      // Informações extras
+      // Linha de infos complementares do veículo
       if (dados.renavam || dados.chassi) {
-        doc.fontSize(7).fillColor(light);
-        if (dados.renavam) doc.text(`RENAVAM: ${dados.renavam}`, 30, y);
-        if (dados.chassi) doc.text(`CHASSI: ${dados.chassi}`, 200, y);
-        y += 15;
+        const HR2 = 16;
+        box(ML, y, PW, HR2);
+        const extra = [
+          dados.renavam ? `RENAVAM: ${dados.renavam}` : "",
+          dados.chassi ? `CHASSI: ${dados.chassi}` : ""
+        ].filter(Boolean).join("   ");
+        doc.font("Helvetica").fontSize(6.5).fillColor(LB)
+          .text(extra, ML + 4, y + 4, { width: PW - 8, lineBreak: false });
+        y += HR2;
       }
 
-      // ── Totais ────────────────────────────────────────────────────────────
-      y += 10;
-      doc.rect(20, y, W - 40, 1).fill(gray);
-      y += 8;
+      // ══════════════════════════════════════════════════════════════════════
+      // BLOCO 9 — DADOS ADICIONAIS
+      // ══════════════════════════════════════════════════════════════════════
+      y += 4;
+      box(ML, y, PW, 14);
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(BK)
+        .text("DADOS ADICIONAIS", ML + 2, y + 3);
+      y += 14;
 
-      doc.fontSize(9).fillColor(gray).text("TOTAIS", 30, y, { underline: true });
-      y += 15;
-      doc.fontSize(10).fillColor(gray)
-        .text(`VALOR TOTAL DA NOTA FISCAL: R$ ${dados.valorTotal.toFixed(2).replace(".", ",")}`, 30, y);
+      const H9 = 55;
+      const wDadosAdd = Math.round(PW * 0.65);
+      const wFisco = PW - wDadosAdd;
+      box(ML, y, wDadosAdd, H9);
+      box(ML + wDadosAdd, y, wFisco, H9);
+      label("INFORMAÇÕES COMPLEMENTARES", ML, y, wDadosAdd);
+      label("RESERVADO AO FISCO", ML + wDadosAdd, y, wFisco);
 
-      // ── Chave de Acesso ───────────────────────────────────────────────────
-      y += 40;
-      doc.rect(20, y, W - 40, 1).fill(gray);
-      y += 8;
+      const infComp = [
+        `Nota Fiscal emitida por VitrineAuto v1.0`,
+        dados.protocolo ? `Autorizada pelo SEFAZ em ${dtEmi}` : `Ambiente de HOMOLOGAÇÃO - SEM VALOR FISCAL`,
+        dados.placa ? `Placa: ${dados.placa}` : "",
+        dados.chassi ? `Chassi: ${dados.chassi}` : ""
+      ].filter(Boolean).join("\n");
 
-      doc.fontSize(7).fillColor(light)
-        .text("CHAVE DE ACESSO", 30, y)
-        .text(formatChave(dados.chaveAcesso), 30, y + 12);
+      doc.font("Helvetica").fontSize(6.5).fillColor(BK)
+        .text(infComp, ML + 2, y + 12, { width: wDadosAdd - 6, lineBreak: true });
 
-      // ── Rodapé ────────────────────────────────────────────────────────────
-      doc.fontSize(6).fillColor(light)
+      // ══════════════════════════════════════════════════════════════════════
+      // RODAPÉ
+      // ══════════════════════════════════════════════════════════════════════
+      const yRodape = doc.page.height - 22;
+      doc.font("Helvetica").fontSize(6).fillColor(LB)
         .text(
-          "Este documento é uma representação gráfica da NF-e. Consulte a autenticidade em www.nfe.fazenda.gov.br",
-          30,
-          doc.page.height - 40,
-          { align: "center", width: W - 60 }
+          "DANFE - Documento Auxiliar da NF-e — Consulte a autenticidade em https://www.nfe.fazenda.gov.br",
+          ML, yRodape, { width: PW, align: "center", lineBreak: false }
         );
 
       doc.end();
