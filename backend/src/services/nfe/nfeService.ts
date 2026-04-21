@@ -168,11 +168,24 @@ ${body}
 /**
  * Cria agente HTTPS com mutual TLS usando o certificado .pfx do emitente.
  * O SEFAZ exige que o cliente apresente seu certificado durante o handshake TLS.
+ * Usa node-forge para converter PFX → PEM (compatível com PKCS12 moderno do OpenSSL 3.x).
  */
 function criarAgenteSEFAZ(pfxBuffer: Buffer, pfxPassword: string): https.Agent {
+  const pfxDer = forge.util.createBuffer(pfxBuffer.toString("binary"));
+  const p12Asn1 = forge.asn1.fromDer(pfxDer);
+  const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, pfxPassword);
+
+  const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
+  const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+
+  const cert = certBags[forge.pki.oids.certBag]?.[0]?.cert;
+  const key = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]?.key;
+
+  if (!cert || !key) throw new Error("Certificado ou chave não encontrados no PFX");
+
   return new https.Agent({
-    pfx: pfxBuffer,
-    passphrase: pfxPassword,
+    cert: forge.pki.certificateToPem(cert),
+    key: forge.pki.privateKeyToPem(key),
     rejectUnauthorized: false // ICP-Brasil não está nas CAs padrão do Node
   });
 }
