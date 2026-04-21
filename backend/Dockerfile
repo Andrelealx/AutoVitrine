@@ -6,10 +6,9 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
-ARG CACHE_BUST=1
 RUN npm run prisma:generate
 RUN npm run build
 
