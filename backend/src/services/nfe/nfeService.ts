@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import https from "https";
 import forge from "node-forge";
 import axios from "axios";
 import PDFDocument from "pdfkit";
@@ -164,6 +165,9 @@ ${body}
 </soapenv:Envelope>`;
 }
 
+// Agente HTTPS que aceita certificados ICP-Brasil (não incluídos nas CAs padrão do Node)
+const sefazHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+
 async function soapPost(url: string, soapAction: string, envelope: string): Promise<string> {
   const response = await axios.post(url, envelope, {
     headers: {
@@ -171,7 +175,8 @@ async function soapPost(url: string, soapAction: string, envelope: string): Prom
       SOAPAction: soapAction
     },
     timeout: 30000,
-    maxBodyLength: Infinity
+    maxBodyLength: Infinity,
+    httpsAgent: sefazHttpsAgent
   });
   return typeof response.data === "string" ? response.data : JSON.stringify(response.data);
 }
