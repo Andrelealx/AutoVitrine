@@ -1,4 +1,5 @@
 # Backend only deploy image for Railway
+# v2 - NF-e module
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
