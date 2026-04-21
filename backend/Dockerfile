@@ -9,6 +9,7 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+ARG CACHE_BUST=1
 RUN npm run prisma:generate
 RUN npm run build
 
@@ -25,4 +26,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
-CMD ["sh", "-c", "echo '=== INICIANDO MIGRATIONS ===' && npx prisma migrate deploy 2>&1 && echo '=== MIGRATIONS OK ===' && node dist/server.js || (echo '=== MIGRATION FALHOU, iniciando sem migrate ===' && node dist/server.js)"]
+CMD ["node", "dist/server.js"]
