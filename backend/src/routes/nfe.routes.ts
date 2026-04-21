@@ -197,7 +197,13 @@ router.get("/config/status", async (req, res, next) => {
       throw new AppError("Configuração fiscal não encontrada", 404);
     }
 
-    const status = await consultarStatusServico(fiscal.ambiente, fiscal.cUF);
+    if (!fiscal.certificadoPfx || !fiscal.certificadoSenha) {
+      throw new AppError("Certificado não configurado", 400);
+    }
+    const certKey = getCertKey();
+    const senhaCert = decryptCertPassword(fiscal.certificadoSenha, certKey);
+    const pfxBuffer = Buffer.from(fiscal.certificadoPfx);
+    const status = await consultarStatusServico(fiscal.ambiente, fiscal.cUF, pfxBuffer, senhaCert);
     return res.json({ status, ambiente: fiscal.ambiente });
   } catch (error) {
     return next(error);
@@ -374,7 +380,7 @@ router.post("/emitir", async (req, res, next) => {
     // 10. Enviar para SEFAZ
     let retorno;
     try {
-      retorno = await enviarParaSEFAZ(xmlAssinado, fiscal.ambiente);
+      retorno = await enviarParaSEFAZ(xmlAssinado, fiscal.ambiente, pfxBuffer, senhaCert);
     } catch (sefazError: any) {
       await prisma.notaFiscal.update({
         where: { id: nota.id },
@@ -670,7 +676,13 @@ router.get("/notas/:id/consultar", async (req, res, next) => {
 
     if (!fiscal) throw new AppError("Configuração fiscal não encontrada", 404);
 
-    const status = await consultarNFe(nota.chaveAcesso, fiscal.ambiente);
+    if (!fiscal.certificadoPfx || !fiscal.certificadoSenha) {
+      throw new AppError("Certificado não configurado", 400);
+    }
+    const certKey = getCertKey();
+    const senhaCert = decryptCertPassword(fiscal.certificadoSenha, certKey);
+    const pfxBuffer = Buffer.from(fiscal.certificadoPfx);
+    const status = await consultarNFe(nota.chaveAcesso, fiscal.ambiente, pfxBuffer, senhaCert);
 
     return res.json({ status, chaveAcesso: nota.chaveAcesso });
   } catch (error) {

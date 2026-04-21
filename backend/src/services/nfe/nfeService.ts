@@ -165,10 +165,24 @@ ${body}
 </soapenv:Envelope>`;
 }
 
-// Agente HTTPS que aceita certificados ICP-Brasil (não incluídos nas CAs padrão do Node)
-const sefazHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+/**
+ * Cria agente HTTPS com mutual TLS usando o certificado .pfx do emitente.
+ * O SEFAZ exige que o cliente apresente seu certificado durante o handshake TLS.
+ */
+function criarAgenteSEFAZ(pfxBuffer: Buffer, pfxPassword: string): https.Agent {
+  return new https.Agent({
+    pfx: pfxBuffer,
+    passphrase: pfxPassword,
+    rejectUnauthorized: false // ICP-Brasil não está nas CAs padrão do Node
+  });
+}
 
-async function soapPost(url: string, soapAction: string, envelope: string): Promise<string> {
+async function soapPost(
+  url: string,
+  soapAction: string,
+  envelope: string,
+  agente: https.Agent
+): Promise<string> {
   const response = await axios.post(url, envelope, {
     headers: {
       "Content-Type": "text/xml; charset=utf-8",
@@ -176,7 +190,7 @@ async function soapPost(url: string, soapAction: string, envelope: string): Prom
     },
     timeout: 30000,
     maxBodyLength: Infinity,
-    httpsAgent: sefazHttpsAgent
+    httpsAgent: agente
   });
   return typeof response.data === "string" ? response.data : JSON.stringify(response.data);
 }
@@ -198,10 +212,13 @@ export interface RetornoSEFAZ {
 export async function enviarParaSEFAZ(
   xmlAssinado: string,
   ambiente: number,
+  pfxBuffer: Buffer,
+  pfxSenha: string,
   idLote?: string
 ): Promise<RetornoSEFAZ> {
   const url = getUrl(ambiente, "NFeAutorizacao4");
   const lote = idLote ?? String(Date.now());
+  const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
   const nfeDadosMsg = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${lote}</idLote><indSinc>1</indSinc>${xmlAssinado}</enviNFe>`;
 
@@ -212,7 +229,8 @@ export async function enviarParaSEFAZ(
   const responseXml = await soapPost(
     url,
     "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
-    envelope
+    envelope,
+    agente
   );
 
   return parsarRetornoAutorizacao(responseXml, xmlAssinado);
@@ -258,13 +276,19 @@ export interface StatusNFe {
   protocolo?: string;
 }
 
-export async function consultarNFe(chave: string, ambiente: number): Promise<StatusNFe> {
+export async function consultarNFe(
+  chave: string,
+  ambiente: number,
+  pfxBuffer: Buffer,
+  pfxSenha: string
+): Promise<StatusNFe> {
   const url = getUrl(ambiente, "NFeConsultaProtocolo4");
+  const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
   const body = `<nfeConsultaNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4"><nfeDadosMsg><consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${chave}</chNFe></consSitNFe></nfeDadosMsg></nfeConsultaNF4>`;
 
   const envelope = buildSoapEnvelope("", body);
-  const responseXml = await soapPost(url, "", envelope);
+  const responseXml = await soapPost(url, "", envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
   const xMotivoMatch = responseXml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
@@ -310,9 +334,10 @@ export async function cancelarNFe(
   // Assinar evento
   eventoXml = assinarXml(eventoXml, pfxBuffer, senha);
 
+  const agente = criarAgenteSEFAZ(pfxBuffer, senha);
   const body = `<nfeRecepcaoEvento4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><nfeDadosMsg>${eventoXml}</nfeDadosMsg></nfeRecepcaoEvento4>`;
   const envelope = buildSoapEnvelope("", body);
-  const responseXml = await soapPost(url, "", envelope);
+  const responseXml = await soapPost(url, "", envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
   const xMotivoMatch = responseXml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
@@ -499,13 +524,19 @@ function formatChave(chave: string): string {
 
 // ─── Status do serviço SEFAZ ─────────────────────────────────────────────────
 
-export async function consultarStatusServico(ambiente: number, cUF: number): Promise<{ cStat: string; xMotivo: string }> {
+export async function consultarStatusServico(
+  ambiente: number,
+  cUF: number,
+  pfxBuffer: Buffer,
+  pfxSenha: string
+): Promise<{ cStat: string; xMotivo: string }> {
   const url = getUrl(ambiente, "NFeStatusServico4");
+  const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
   const body = `<nfeStatusServicoNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4"><nfeDadosMsg><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><cUF>${cUF}</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></nfeStatusServicoNF4>`;
 
   const envelope = buildSoapEnvelope("", body);
-  const responseXml = await soapPost(url, "", envelope);
+  const responseXml = await soapPost(url, "", envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
   const xMotivoMatch = responseXml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
