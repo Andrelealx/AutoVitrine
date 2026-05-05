@@ -94,23 +94,31 @@ function extractElement(xml: string, tagName: string): string {
 }
 
 /**
- * Assina o XML da NF-e com o certificado digital A1 (.pfx)
+ * Assina o XML da NF-e ou evento com o certificado digital A1 (.pfx)
  * Implementa XMLDSig conforme padrão SEFAZ
+ * @param elementoAssinatura - elemento cujo conteúdo será assinado (ex: "infNFe", "infEvento")
+ * @param elementoPai - elemento onde a assinatura será inserida antes do fechamento (ex: "NFe", "evento")
  */
-export function assinarXml(xmlStr: string, pfxBuffer: Buffer, senha: string): string {
+export function assinarXml(
+  xmlStr: string,
+  pfxBuffer: Buffer,
+  senha: string,
+  elementoAssinatura = "infNFe",
+  elementoPai = "NFe"
+): string {
   const { privateKeyPem, certDerBase64 } = carregarPfx(pfxBuffer, senha);
 
-  // Extrair elemento infNFe para assinar
-  const infNFeElement = extractElement(xmlStr, "infNFe");
-  const canonicalInfNFe = c14n(infNFeElement);
+  // Extrair elemento a ser assinado
+  const infElement = extractElement(xmlStr, elementoAssinatura);
+  const canonicalElement = c14n(infElement);
 
-  // 1. Calcular DigestValue (SHA-1 do canonical infNFe)
-  const digestHex = crypto.createHash("sha1").update(canonicalInfNFe, "utf8").digest();
+  // 1. Calcular DigestValue (SHA-1 do canonical element)
+  const digestHex = crypto.createHash("sha1").update(canonicalElement, "utf8").digest();
   const digestBase64 = digestHex.toString("base64");
 
   // 2. Extrair o Id da referência
-  const idMatch = infNFeElement.match(/Id="([^"]+)"/);
-  const refId = idMatch ? idMatch[1] : "NFe";
+  const idMatch = infElement.match(/Id="([^"]+)"/);
+  const refId = idMatch ? idMatch[1] : elementoAssinatura;
 
   // 3. Montar bloco SignedInfo
   const signedInfo = `<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></CanonicalizationMethod><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></SignatureMethod><Reference URI="#${refId}"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></Transform><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></Transform></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></DigestMethod><DigestValue>${digestBase64}</DigestValue></Reference></SignedInfo>`;
@@ -124,8 +132,13 @@ export function assinarXml(xmlStr: string, pfxBuffer: Buffer, senha: string): st
   // 5. Montar bloco Signature completo
   const signatureBlock = `<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">${signedInfo}<SignatureValue>${signatureBase64}</SignatureValue><KeyInfo><X509Data><X509Certificate>${certDerBase64}</X509Certificate></X509Data></KeyInfo></Signature>`;
 
-  // 6. Inserir Signature dentro de <NFe> antes do fechamento </NFe>
-  return xmlStr.replace("</NFe>", `${signatureBlock}</NFe>`);
+  // 6. Inserir Signature dentro do elemento pai antes do fechamento
+  const closeTag = `</${elementoPai}>`;
+  const lastIdx = xmlStr.lastIndexOf(closeTag);
+  if (lastIdx === -1) {
+    throw new Error(`Elemento pai </${elementoPai}> não encontrado no XML para inserção da assinatura`);
+  }
+  return xmlStr.slice(0, lastIdx) + signatureBlock + closeTag + xmlStr.slice(lastIdx + closeTag.length);
 }
 
 // ─── Endpoints SEFAZ ─────────────────────────────────────────────────────────
@@ -247,7 +260,9 @@ export async function enviarParaSEFAZ(
   const lote = idLote ?? String(Date.now());
   const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
-  const nfeDadosMsg = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${lote}</idLote><indSinc>1</indSinc>${xmlAssinado}</enviNFe>`;
+  // Remove declaração XML antes de embutir dentro de outro elemento (inválido ter <?xml?> dentro de elemento)
+  const nfeConteudo = xmlAssinado.replace(/^<\?xml[^?]*\?>\s*/i, "");
+  const nfeDadosMsg = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${lote}</idLote><indSinc>1</indSinc>${nfeConteudo}</enviNFe>`;
 
   const body = `<nfeAutorizacaoLote4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4"><nfeDadosMsg>${nfeDadosMsg}</nfeDadosMsg></nfeAutorizacaoLote4>`;
 
@@ -286,7 +301,7 @@ function parsarRetornoAutorizacao(responseXml: string, xmlAssinado: string): Ret
       `<?xml version="1.0" encoding="UTF-8"?>` +
       `<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">` +
       xmlAssinado.replace(`<?xml version="1.0" encoding="UTF-8"?>`, "").trim() +
-      `<protNFe versao="4.00"><infProt>${infProt}</infProt></protNFe>` +
+      `<protNFe versao="4.00">${infProt}</protNFe>` +
       `</nfeProc>`;
 
     return { cStat, xMotivo, protocolo, dhRecbto, xmlAutorizado, infProt };
@@ -349,20 +364,34 @@ export async function cancelarNFe(
   }
 
   const url = getUrl(ambiente, "NFeRecepcaoEvento4");
-  const dhEvento = new Date().toISOString().slice(0, 19) + "-03:00";
+
+  // Calcular dhEvento em horário local de Brasília (-03:00) a partir do UTC
+  const nowMs = Date.now();
+  const brLocalMs = nowMs + (-3) * 3600000;
+  const brLocal = new Date(brLocalMs);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const dhEvento = `${brLocal.getUTCFullYear()}-${pad2(brLocal.getUTCMonth() + 1)}-${pad2(brLocal.getUTCDate())}T${pad2(brLocal.getUTCHours())}:${pad2(brLocal.getUTCMinutes())}:${pad2(brLocal.getUTCSeconds())}-03:00`;
+
   const nSeqEvento = "1";
+  const eventId = `ID110111${chave}${nSeqEvento.padStart(2, "0")}`;
 
   const detEvento = `<detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${protocolo}</nProt><xJust>${justificativa}</xJust></detEvento>`;
 
-  const infEvento = `<infEvento Id="ID110111${chave}${nSeqEvento.padStart(2, "0")}"><cOrgao>91</cOrgao><tpAmb>${ambiente}</tpAmb><CNPJ>${chave.slice(6, 20)}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>${nSeqEvento}</nSeqEvento><verEvento>1.00</verEvento>${detEvento}</infEvento>`;
+  // infEvento: elemento completo a ser assinado
+  const infEvento = `<infEvento Id="${eventId}"><cOrgao>91</cOrgao><tpAmb>${ambiente}</tpAmb><CNPJ>${chave.slice(6, 20)}</CNPJ><chNFe>${chave}</chNFe><dhEvento>${dhEvento}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>${nSeqEvento}</nSeqEvento><verEvento>1.00</verEvento>${detEvento}</infEvento>`;
 
-  let eventoXml = `<?xml version="1.0" encoding="UTF-8"?><envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>${Date.now()}</idLote><evento versao="1.00"><infEvento Id="ID110111${chave}${nSeqEvento.padStart(2, "0")}">${infEvento}</infEvento></evento></envEvento>`;
+  // eventoXml: estrutura correta sem duplicar a tag <infEvento>
+  // A assinatura será inserida dentro de <evento> após o <infEvento>
+  let eventoXml = `<?xml version="1.0" encoding="UTF-8"?><envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>${Date.now()}</idLote><evento versao="1.00">${infEvento}</evento></envEvento>`;
 
-  // Assinar evento
-  eventoXml = assinarXml(eventoXml, pfxBuffer, senha);
+  // Assinar evento: assina infEvento e insere Signature dentro de </evento>
+  eventoXml = assinarXml(eventoXml, pfxBuffer, senha, "infEvento", "evento");
+
+  // Remove declaração XML antes de embutir no body SOAP
+  const eventoConteudo = eventoXml.replace(/^<\?xml[^?]*\?>\s*/i, "");
 
   const agente = criarAgenteSEFAZ(pfxBuffer, senha);
-  const body = `<nfeRecepcaoEvento4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><nfeDadosMsg>${eventoXml}</nfeDadosMsg></nfeRecepcaoEvento4>`;
+  const body = `<nfeRecepcaoEvento4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><nfeDadosMsg>${eventoConteudo}</nfeDadosMsg></nfeRecepcaoEvento4>`;
   const envelope = buildSoapEnvelope("", body);
   const responseXml = await soapPost(url, "", envelope, agente);
 

@@ -238,49 +238,35 @@ function buildNFeXml(dados: DadosNFe): string {
 }
 
 function formatarDhEmi(data: Date, uf: string): string {
-  // Determinar offset baseado na UF
-  const offsetMap: Record<string, string> = {
-    AC: "-05:00",
-    AM: "-04:00",
-    RR: "-04:00",
-    RO: "-04:00",
-    PA: "-03:00",
-    AP: "-03:00",
-    MA: "-03:00",
-    PI: "-03:00",
-    CE: "-03:00",
-    RN: "-03:00",
-    PB: "-03:00",
-    PE: "-03:00",
-    AL: "-03:00",
-    SE: "-03:00",
-    BA: "-03:00",
-    MG: "-03:00",
-    ES: "-03:00",
-    RJ: "-03:00",
-    SP: "-03:00",
-    PR: "-03:00",
-    SC: "-03:00",
-    RS: "-03:00",
-    MS: "-04:00",
-    MT: "-04:00",
-    GO: "-03:00",
-    DF: "-03:00",
-    TO: "-03:00"
+  // Offset em horas por UF
+  const offsetHorasMap: Record<string, number> = {
+    AC: -5,
+    AM: -4, RR: -4, RO: -4,
+    PA: -3, AP: -3, MA: -3, PI: -3, CE: -3, RN: -3, PB: -3, PE: -3,
+    AL: -3, SE: -3, BA: -3, MG: -3, ES: -3, RJ: -3, SP: -3, PR: -3,
+    SC: -3, RS: -3, GO: -3, DF: -3, TO: -3,
+    MS: -4, MT: -4
   };
 
-  const offset = offsetMap[uf.toUpperCase()] ?? "-03:00";
+  const offsetHoras = offsetHorasMap[uf.toUpperCase()] ?? -3;
+
+  // Converter UTC para hora local da UF aplicando o offset
+  // Usa getUTC* para ser correto independente do timezone do servidor
+  const localMs = data.getTime() + offsetHoras * 3600000;
+  const local = new Date(localMs);
 
   const pad = (n: number) => String(n).padStart(2, "0");
+  const sinal = offsetHoras < 0 ? "-" : "+";
+  const offsetStr = `${sinal}${pad(Math.abs(offsetHoras))}:00`;
 
   return (
-    `${data.getFullYear()}-` +
-    `${pad(data.getMonth() + 1)}-` +
-    `${pad(data.getDate())}T` +
-    `${pad(data.getHours())}:` +
-    `${pad(data.getMinutes())}:` +
-    `${pad(data.getSeconds())}` +
-    offset
+    `${local.getUTCFullYear()}-` +
+    `${pad(local.getUTCMonth() + 1)}-` +
+    `${pad(local.getUTCDate())}T` +
+    `${pad(local.getUTCHours())}:` +
+    `${pad(local.getUTCMinutes())}:` +
+    `${pad(local.getUTCSeconds())}` +
+    offsetStr
   );
 }
 

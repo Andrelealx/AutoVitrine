@@ -69,20 +69,20 @@ router.get("/config", async (req, res, next) => {
         cep: true,
         fone: true,
         cUF: true,
-        certificadoPfx: false, // nunca retornar o certificado
-        certificadoSenha: false,
+        certificadoPfx: true, // apenas para checar existência, não retornado ao cliente
         createdAt: true,
         updatedAt: true
       }
     });
 
+    const temCertificado = !!fiscal?.certificadoPfx;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { certificadoPfx: _cert, ...fiscalSemCert } = fiscal ?? ({} as typeof fiscal & { certificadoPfx: unknown });
+
     return res.json({
       configurado: !!fiscal && !!fiscal.cnpj,
       fiscal: fiscal
-        ? {
-            ...fiscal,
-            temCertificado: false // substituído abaixo
-          }
+        ? { ...fiscalSemCert, temCertificado }
         : null
     });
   } catch (error) {
