@@ -10,8 +10,8 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
-RUN npm run prisma:generate
-RUN npm run build
+RUN npm run prisma:generate --workspace backend
+RUN npm run build --workspace backend
 
 FROM node:20-bookworm-slim AS runner
 RUN apt-get update \
@@ -22,8 +22,8 @@ ENV NODE_ENV=production
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/backend/prisma ./prisma
+COPY --from=builder /app/backend/dist ./dist
 
 EXPOSE 4000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
