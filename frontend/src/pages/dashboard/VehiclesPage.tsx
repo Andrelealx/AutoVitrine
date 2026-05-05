@@ -1,5 +1,6 @@
 ﻿import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, Copy, ExternalLink, Loader2, Search, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
+import { Camera, Check, Copy, ExternalLink, FileText, Loader2, Search, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { UpgradeModal } from "../../components/billing/UpgradeModal";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { api } from "../../lib/api";
@@ -122,6 +123,7 @@ function normalizeImages(images: VehicleImagePayload[]) {
 export function VehiclesPage() {
   const toast = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const storeSlug = user?.store?.slug;
 
   const [vehiclesData, setVehiclesData] = useState<VehiclesResponse | null>(null);
@@ -1224,6 +1226,16 @@ export function VehiclesPage() {
                           Duplicar
                         </button>
                       </div>
+
+                      {/* Emitir NF-e */}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dashboard/fiscal?veiculoId=${vehicle.id}`)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-400/30 px-3 py-2 text-sm text-blue-300 hover:bg-blue-400/10"
+                      >
+                        <FileText size={14} />
+                        Emitir NF-e
+                      </button>
 
                       {/* Excluir */}
                       <button

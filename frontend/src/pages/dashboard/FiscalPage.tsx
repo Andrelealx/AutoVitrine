@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle,
@@ -494,7 +495,7 @@ function AbaConfig() {
 
 // ─── Aba Emitir NF-e ─────────────────────────────────────────────────────────
 
-function AbaEmitir({ onEmitida }: { onEmitida: () => void }) {
+function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; initialVeiculoId?: string }) {
   const [busca, setBusca] = useState("");
   const [veiculos, setVeiculos] = useState<VeiculoBusca[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -530,6 +531,25 @@ function AbaEmitir({ onEmitida }: { onEmitida: () => void }) {
     }, 300);
     return () => clearTimeout(timer);
   }, [busca]);
+
+  useEffect(() => {
+    if (!initialVeiculoId) return;
+    api.get(`/vehicles/${initialVeiculoId}`).then(res => {
+      const v = res.data;
+      selecionarVeiculo({
+        id: v.id,
+        brand: v.brand,
+        model: v.model,
+        year: v.year,
+        color: v.color,
+        plate: v.plate ?? undefined,
+        renavam: v.renavam ?? undefined,
+        chassis: v.chassis ?? undefined,
+        price: String(v.price)
+      });
+    }).catch(() => {/* veículo não encontrado, ignora */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVeiculoId]);
 
   function selecionarVeiculo(v: VeiculoBusca) {
     setVeiculoSelecionado(v);
@@ -1050,7 +1070,9 @@ function Field({ label, value, onChange, placeholder, required, type = "text", m
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export function FiscalPage() {
-  const [tab, setTab] = useState<Tab>("config");
+  const [searchParams] = useSearchParams();
+  const veiculoIdParam = searchParams.get("veiculoId") ?? undefined;
+  const [tab, setTab] = useState<Tab>(veiculoIdParam ? "emitir" : "config");
   const [historicoRefresh, setHistoricoRefresh] = useState(0);
 
   const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
@@ -1104,7 +1126,7 @@ export function FiscalPage() {
       {/* Conteúdo */}
       {tab === "config" && <AbaConfig />}
       {tab === "emitir" && (
-        <AbaEmitir onEmitida={() => setHistoricoRefresh(r => r + 1)} />
+        <AbaEmitir onEmitida={() => setHistoricoRefresh(r => r + 1)} initialVeiculoId={veiculoIdParam} />
       )}
       {tab === "historico" && <AbaHistorico refresh={historicoRefresh} />}
     </div>
