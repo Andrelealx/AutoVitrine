@@ -218,10 +218,13 @@ async function soapPost(
   agente: https.Agent
 ): Promise<string> {
   try {
-    // SEFAZ NF-e 4.00 usa SOAP 1.2: Content-Type application/soap+xml com action embutida
-    const contentType = soapAction
-      ? `application/soap+xml; charset=utf-8; action="${soapAction}"`
-      : "application/soap+xml; charset=utf-8";
+    // SEFAZ NF-e 4.00 usa SOAP 1.2: Content-Type application/soap+xml
+    const contentType = "application/soap+xml; charset=utf-8";
+
+    // DEBUG — remover após resolver cStat 242
+    console.error("[SEFAZ-DEBUG] URL:", url);
+    console.error("[SEFAZ-DEBUG] Content-Type:", contentType);
+    console.error("[SEFAZ-DEBUG] Envelope (primeiros 1500 chars):\n", envelope.slice(0, 1500));
 
     const response = await axios.post(url, envelope, {
       headers: {
@@ -233,6 +236,11 @@ async function soapPost(
       validateStatus: () => true // captura qualquer status HTTP para analisar o body
     });
     const body = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+
+    // DEBUG — remover após resolver cStat 242
+    console.error("[SEFAZ-DEBUG] HTTP status:", response.status);
+    console.error("[SEFAZ-DEBUG] Resposta (primeiros 2000 chars):\n", body.slice(0, 2000));
+
     if (response.status >= 400) {
       throw new Error(`HTTP ${response.status}: ${body.slice(0, 300)}`);
     }
