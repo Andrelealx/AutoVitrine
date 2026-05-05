@@ -75,15 +75,17 @@ router.get("/config", async (req, res, next) => {
       }
     });
 
-    const temCertificado = !!fiscal?.certificadoPfx;
+    if (!fiscal) {
+      return res.json({ configurado: false, fiscal: null });
+    }
+
+    const temCertificado = !!fiscal.certificadoPfx;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { certificadoPfx: _cert, ...fiscalSemCert } = fiscal ?? ({} as typeof fiscal & { certificadoPfx: unknown });
+    const { certificadoPfx: _pfx, ...fiscalSemCert } = fiscal;
 
     return res.json({
-      configurado: !!fiscal && !!fiscal.cnpj,
-      fiscal: fiscal
-        ? { ...fiscalSemCert, temCertificado }
-        : null
+      configurado: !!fiscal.cnpj,
+      fiscal: { ...fiscalSemCert, temCertificado }
     });
   } catch (error) {
     return next(error);

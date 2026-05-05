@@ -159,8 +159,7 @@ function buildNFeXml(dados: DadosNFe): string {
 <cEAN>SEM GTIN</cEAN>
 <xProd>${esc(descricao.slice(0, 120))}</xProd>
 <NCM>87032310</NCM>
-<CEST>0100100</CEST>
-<CFOP>5114</CFOP>
+<CFOP>5102</CFOP>
 <uCom>UN</uCom>
 <qCom>1.0000</qCom>
 <vUnCom>${valorUnStr}</vUnCom>

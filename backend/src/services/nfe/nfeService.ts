@@ -767,7 +767,7 @@ export async function gerarDANFE(dados: {
         dados.descricaoProduto.slice(0, 50),
         "87032310",
         "0102",
-        "5114",
+        "5102",
         "UN",
         "1,00",
         fmt(dados.valorTotal),

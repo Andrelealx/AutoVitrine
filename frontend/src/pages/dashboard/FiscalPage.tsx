@@ -506,6 +506,7 @@ function AbaEmitir({ onEmitida }: { onEmitida: () => void }) {
     mensagem: string;
     nota?: { id: string; nNF: number; protocolo?: string };
   } | null>(null);
+  const [baixandoDanfe, setBaixandoDanfe] = useState(false);
 
   const [form, setForm] = useState({
     placa: "", descricao: "", renavam: "", chassi: "", valorVenda: "",
@@ -573,20 +574,65 @@ function AbaEmitir({ onEmitida }: { onEmitida: () => void }) {
   return (
     <form onSubmit={emitir} className="space-y-5">
       {resultado && (
-        <div className={`flex items-start gap-3 rounded-2xl border p-4 ${
+        <div className={`rounded-2xl border p-4 ${
           resultado.ok
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
             : "border-red-500/30 bg-red-500/10 text-red-300"
         }`}>
-          {resultado.ok ? <CheckCircle size={18} className="mt-0.5 shrink-0" /> : <XCircle size={18} className="mt-0.5 shrink-0" />}
-          <div>
-            <p className="font-medium">{resultado.mensagem}</p>
-            {resultado.nota && (
-              <p className="mt-1 text-sm opacity-80">
-                NF-e Nº {String(resultado.nota.nNF).padStart(9, "0")} — Protocolo: {resultado.nota.protocolo}
-              </p>
-            )}
+          <div className="flex items-start gap-3">
+            {resultado.ok ? <CheckCircle size={18} className="mt-0.5 shrink-0" /> : <XCircle size={18} className="mt-0.5 shrink-0" />}
+            <div className="flex-1">
+              <p className="font-medium">{resultado.mensagem}</p>
+              {resultado.nota && (
+                <p className="mt-1 text-sm opacity-80">
+                  NF-e Nº {String(resultado.nota.nNF).padStart(9, "0")} — Protocolo: {resultado.nota.protocolo}
+                </p>
+              )}
+            </div>
           </div>
+
+          {resultado.ok && resultado.nota && (
+            <div className="mt-3 flex gap-2 border-t border-emerald-500/20 pt-3">
+              <button
+                type="button"
+                disabled={baixandoDanfe}
+                onClick={async () => {
+                  setBaixandoDanfe(true);
+                  try {
+                    const res = await api.get(`/nfe/notas/${resultado.nota!.id}/danfe`, { responseType: "blob" });
+                    const url = URL.createObjectURL(res.data);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `DANFE_NFe${String(resultado.nota!.nNF).padStart(9, "0")}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } finally {
+                    setBaixandoDanfe(false);
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {baixandoDanfe ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Baixar DANFE
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await api.get(`/nfe/notas/${resultado.nota!.id}/xml`, { responseType: "blob" });
+                  const url = URL.createObjectURL(res.data);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `NFe${String(resultado.nota!.nNF).padStart(9, "0")}.xml`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/10"
+              >
+                <FileText size={13} />
+                Baixar XML
+              </button>
+            </div>
+          )}
         </div>
       )}
 
