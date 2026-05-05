@@ -285,7 +285,8 @@ export async function enviarParaSEFAZ(
   const nfeConteudo = xmlAssinado.replace(/^<\?xml[^?]*\?>\s*/i, "");
   const nfeDadosMsg = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${lote}</idLote><indSinc>1</indSinc>${nfeConteudo}</enviNFe>`;
 
-  const body = `<nfeAutorizacaoLote4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4"><nfeDadosMsg>${nfeDadosMsg}</nfeDadosMsg></nfeAutorizacaoLote4>`;
+  // Document/literal: nfeDadosMsg é o elemento do body diretamente (sem wrapper extra)
+  const body = `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4">${nfeDadosMsg}</nfeDadosMsg>`;
 
   const cUFMatch = xmlAssinado.match(/<cUF>(\d+)<\/cUF>/);
   const cUF = parseInt(cUFMatch?.[1] ?? "0");
@@ -346,7 +347,7 @@ export async function consultarNFe(
   const url = getUrl(ambiente, "NFeConsultaProtocolo4");
   const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
-  const body = `<nfeConsultaNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4"><nfeDadosMsg><consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${chave}</chNFe></consSitNFe></nfeDadosMsg></nfeConsultaNF4>`;
+  const body = `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4"><consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${chave}</chNFe></consSitNFe></nfeDadosMsg>`;
 
   const action = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF";
   const envelope = buildSoapEnvelope(action, body, { cUF: parseInt(chave.slice(0, 2)), versaoDados: "4.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4" });
@@ -411,7 +412,7 @@ export async function cancelarNFe(
   const eventoConteudo = eventoXml.replace(/^<\?xml[^?]*\?>\s*/i, "");
 
   const agente = criarAgenteSEFAZ(pfxBuffer, senha);
-  const body = `<nfeRecepcaoEvento4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><nfeDadosMsg>${eventoConteudo}</nfeDadosMsg></nfeRecepcaoEvento4>`;
+  const body = `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">${eventoConteudo}</nfeDadosMsg>`;
   const cancelAction = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento";
   const envelope = buildSoapEnvelope(cancelAction, body, { cUF: parseInt(chave.slice(0, 2)), versaoDados: "1.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4" });
   const responseXml = await soapPost(url, cancelAction, envelope, agente);
@@ -871,7 +872,7 @@ export async function consultarStatusServico(
   const url = getUrl(ambiente, "NFeStatusServico4");
   const agente = criarAgenteSEFAZ(pfxBuffer, pfxSenha);
 
-  const body = `<nfeStatusServicoNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4"><nfeDadosMsg><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><cUF>${cUF}</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></nfeStatusServicoNF4>`;
+  const body = `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4"><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><cUF>${cUF}</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg>`;
 
   const statusAction = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4/nfeStatusServicoNF";
   const envelope = buildSoapEnvelope(statusAction, body, { cUF, versaoDados: "4.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4" });
