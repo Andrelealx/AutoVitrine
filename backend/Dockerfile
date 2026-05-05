@@ -7,6 +7,7 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package*.json ./
+COPY backend/package.json ./backend/
 RUN npm install
 
 COPY . .
