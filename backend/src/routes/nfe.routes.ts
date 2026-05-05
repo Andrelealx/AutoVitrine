@@ -186,6 +186,36 @@ router.put("/config/ambiente", async (req, res, next) => {
   }
 });
 
+// PUT /api/nfe/config/numeracao — define qual será o número da próxima NF-e
+router.put("/config/numeracao", async (req, res, next) => {
+  try {
+    const proximaNNF = Number(req.body.proximaNNF);
+    if (!Number.isInteger(proximaNNF) || proximaNNF < 1 || proximaNNF > 999999999) {
+      throw new AppError("Número inválido. Use um valor entre 1 e 999.999.999", 400);
+    }
+
+    const fiscal = await prisma.lojaFiscal.findUnique({ where: { lojaId: req.user!.storeId! } });
+    if (!fiscal) throw new AppError("Configuração fiscal não encontrada", 404);
+
+    // Não permitir retroceder abaixo da última emitida
+    if (proximaNNF <= fiscal.ultimaNNF) {
+      throw new AppError(
+        `Não é possível retroceder a numeração. Última NF-e emitida foi a nº ${fiscal.ultimaNNF}. Informe um valor maior que ${fiscal.ultimaNNF}.`,
+        400
+      );
+    }
+
+    await prisma.lojaFiscal.update({
+      where: { lojaId: req.user!.storeId! },
+      data: { ultimaNNF: proximaNNF - 1 }
+    });
+
+    return res.json({ message: `Próxima NF-e será a nº ${proximaNNF}`, proximaNNF });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // GET /api/nfe/config/status — testa conexão com SEFAZ
 router.get("/config/status", async (req, res, next) => {
   try {

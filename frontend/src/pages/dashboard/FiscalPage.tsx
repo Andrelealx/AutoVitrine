@@ -26,6 +26,7 @@ interface LojaFiscal {
   ambiente: number;
   serie: number;
   ultimaNNF: number;
+  temCertificado: boolean;
   logradouro: string;
   numero: string;
   bairro: string;
@@ -114,6 +115,9 @@ function AbaConfig() {
   });
   const [certSenha, setCertSenha] = useState("");
   const [certFile, setCertFile] = useState<File | null>(null);
+  const [editandoNum, setEditandoNum] = useState(false);
+  const [proximaNNF, setProximaNNF] = useState("");
+  const [salvandoNum, setSalvandoNum] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -171,6 +175,23 @@ function AbaConfig() {
       setCertStatus("error");
     } finally {
       setUploadingCert(false);
+    }
+  }
+
+  async function salvarNumeracao() {
+    const num = parseInt(proximaNNF);
+    if (isNaN(num) || num < 1) return;
+    setSalvandoNum(true);
+    setMsg(null);
+    try {
+      const res = await api.put("/nfe/config/numeracao", { proximaNNF: num });
+      setMsg({ type: "success", text: res.data.message });
+      setEditandoNum(false);
+      loadConfig();
+    } catch (err: any) {
+      setMsg({ type: "error", text: err?.response?.data?.message ?? "Erro ao atualizar numeração" });
+    } finally {
+      setSalvandoNum(false);
     }
   }
 
@@ -291,9 +312,98 @@ function AbaConfig() {
         </button>
       </form>
 
+      {/* Numeração das NF-e */}
+      {fiscal && (
+        <div className="rounded-2xl border border-white/10 bg-base-900 p-6">
+          <h3 className="mb-1 text-base font-semibold text-zinc-100">Numeração das NF-e</h3>
+          <p className="mb-5 text-xs text-zinc-500">
+            CNPJ: {fiscal.cnpj} — Série {fiscal.serie}
+          </p>
+
+          {msg && (
+            <div className={`mb-4 flex items-center gap-2 rounded-xl p-3 text-sm ${
+              msg.type === "success"
+                ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : "border border-red-500/30 bg-red-500/10 text-red-300"
+            }`}>
+              {msg.type === "success" ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+              {msg.text}
+            </div>
+          )}
+
+          <div className="flex items-end gap-4">
+            <div className="w-48">
+              <label className="mb-1.5 block text-xs text-zinc-400">Número da PRÓXIMA NOTA FISCAL</label>
+              {editandoNum ? (
+                <input
+                  type="number"
+                  min={fiscal.ultimaNNF + 1}
+                  value={proximaNNF}
+                  onChange={e => setProximaNNF(e.target.value)}
+                  autoFocus
+                  className="w-full rounded-xl border border-gold-400/50 bg-base-950 px-3 py-2 text-sm text-zinc-100 focus:outline-none"
+                />
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-base-950 px-3 py-2 text-sm font-mono text-zinc-100">
+                  {fiscal.ultimaNNF + 1}
+                </div>
+              )}
+            </div>
+            <div className="w-28">
+              <label className="mb-1.5 block text-xs text-zinc-400">Nº de Série</label>
+              <div className="rounded-xl border border-white/10 bg-base-950 px-3 py-2 text-sm font-mono text-zinc-100">
+                {fiscal.serie}
+              </div>
+            </div>
+            {editandoNum ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={salvarNumeracao}
+                  disabled={salvandoNum || !proximaNNF}
+                  className="flex items-center gap-1.5 rounded-xl bg-gold-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-gold-300 disabled:opacity-50"
+                >
+                  {salvandoNum ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                  Salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditandoNum(false); setProximaNNF(""); }}
+                  className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-zinc-400 hover:text-zinc-200"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditandoNum(true); setProximaNNF(String(fiscal.ultimaNNF + 1)); }}
+                className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-zinc-300 hover:border-white/20 hover:text-zinc-100"
+              >
+                Editar
+              </button>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-zinc-600">
+            Última NF-e emitida: {fiscal.ultimaNNF === 0 ? "nenhuma" : `nº ${fiscal.ultimaNNF}`}
+          </p>
+        </div>
+      )}
+
       {/* Certificado Digital */}
       <div className="rounded-2xl border border-white/10 bg-base-900 p-6">
-        <h3 className="mb-5 text-base font-semibold text-zinc-100">Certificado Digital A1 (.pfx)</h3>
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-zinc-100">Certificado Digital A1 (.pfx)</h3>
+          {fiscal?.temCertificado ? (
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+              <CheckCircle size={11} /> Certificado configurado
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
+              <AlertTriangle size={11} /> Sem certificado
+            </span>
+          )}
+        </div>
 
         <div
           onClick={() => fileRef.current?.click()}
