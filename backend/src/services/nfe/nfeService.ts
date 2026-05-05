@@ -170,10 +170,17 @@ function getUrl(ambiente: number, servico: string): string {
   return url;
 }
 
-function buildSoapEnvelope(_action: string, body: string): string {
+function buildSoapEnvelope(
+  _action: string,
+  body: string,
+  cabecalho?: { cUF: number; versaoDados: string; wsdlNs: string }
+): string {
+  const header = cabecalho
+    ? `<soap12:Header><nfeCabecMsg xmlns="${cabecalho.wsdlNs}"><cUF>${cabecalho.cUF}</cUF><versaoDados>${cabecalho.versaoDados}</versaoDados></nfeCabecMsg></soap12:Header>\n`
+    : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
-<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
-<soap12:Body>
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+${header}<soap12:Body>
 ${body}
 </soap12:Body>
 </soap12:Envelope>`;
@@ -270,14 +277,12 @@ export async function enviarParaSEFAZ(
 
   const body = `<nfeAutorizacaoLote4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4"><nfeDadosMsg>${nfeDadosMsg}</nfeDadosMsg></nfeAutorizacaoLote4>`;
 
-  const envelope = buildSoapEnvelope("http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote", body);
+  const cUFMatch = xmlAssinado.match(/<cUF>(\d+)<\/cUF>/);
+  const cUF = parseInt(cUFMatch?.[1] ?? "0");
+  const autAction = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote";
+  const envelope = buildSoapEnvelope(autAction, body, { cUF, versaoDados: "4.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4" });
 
-  const responseXml = await soapPost(
-    url,
-    "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
-    envelope,
-    agente
-  );
+  const responseXml = await soapPost(url, autAction, envelope, agente);
 
   return parsarRetornoAutorizacao(responseXml, xmlAssinado);
 }
@@ -334,7 +339,7 @@ export async function consultarNFe(
   const body = `<nfeConsultaNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4"><nfeDadosMsg><consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${chave}</chNFe></consSitNFe></nfeDadosMsg></nfeConsultaNF4>`;
 
   const action = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF";
-  const envelope = buildSoapEnvelope(action, body);
+  const envelope = buildSoapEnvelope(action, body, { cUF: parseInt(chave.slice(0, 2)), versaoDados: "4.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4" });
   const responseXml = await soapPost(url, action, envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
@@ -398,7 +403,7 @@ export async function cancelarNFe(
   const agente = criarAgenteSEFAZ(pfxBuffer, senha);
   const body = `<nfeRecepcaoEvento4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><nfeDadosMsg>${eventoConteudo}</nfeDadosMsg></nfeRecepcaoEvento4>`;
   const cancelAction = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento";
-  const envelope = buildSoapEnvelope(cancelAction, body);
+  const envelope = buildSoapEnvelope(cancelAction, body, { cUF: parseInt(chave.slice(0, 2)), versaoDados: "1.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4" });
   const responseXml = await soapPost(url, cancelAction, envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
@@ -859,7 +864,7 @@ export async function consultarStatusServico(
   const body = `<nfeStatusServicoNF4 xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4"><nfeDadosMsg><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${ambiente}</tpAmb><cUF>${cUF}</cUF><xServ>STATUS</xServ></consStatServ></nfeDadosMsg></nfeStatusServicoNF4>`;
 
   const statusAction = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4/nfeStatusServicoNF";
-  const envelope = buildSoapEnvelope(statusAction, body);
+  const envelope = buildSoapEnvelope(statusAction, body, { cUF, versaoDados: "4.00", wsdlNs: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4" });
   const responseXml = await soapPost(url, statusAction, envelope, agente);
 
   const cStatMatch = responseXml.match(/<cStat>(\d+)<\/cStat>/);
