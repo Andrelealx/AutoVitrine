@@ -218,8 +218,10 @@ async function soapPost(
   agente: https.Agent
 ): Promise<string> {
   try {
-    // SEFAZ NF-e 4.00 usa SOAP 1.2: Content-Type application/soap+xml
-    const contentType = "application/soap+xml; charset=utf-8";
+    // SEFAZ NF-e 4.00 usa SOAP 1.2: Content-Type application/soap+xml com action
+    const contentType = soapAction
+      ? `application/soap+xml; charset=utf-8; action="${soapAction}"`
+      : "application/soap+xml; charset=utf-8";
 
     // DEBUG — remover após resolver cStat 242
     console.error("[SEFAZ-DEBUG] URL:", url);
