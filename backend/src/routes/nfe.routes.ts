@@ -267,7 +267,10 @@ const emitirSchema = z.object({
   indIEDest: z.string().default("9"),
 
   // Pagamento
-  tipoPagamento: z.string().default("99")
+  tipoPagamento: z.string().default("99"),
+
+  // Tipo de operação
+  tipoOperacao: z.enum(["saida", "entrada"]).default("saida")
 });
 
 // POST /api/nfe/emitir
@@ -377,7 +380,8 @@ router.post("/emitir", async (req, res, next) => {
       chaveAcesso,
       ambiente: fiscal.ambiente,
       dhEmi,
-      tipoPagamento: dados.tipoPagamento
+      tipoPagamento: dados.tipoPagamento,
+      tipoOperacao: dados.tipoOperacao
     };
 
     // 7. Gerar XML

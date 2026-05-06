@@ -44,6 +44,9 @@ export interface DadosNFe {
 
   // Pagamento
   tipoPagamento?: string; // "99" = outros, "01" = dinheiro, etc.
+
+  // Tipo de operação
+  tipoOperacao?: "saida" | "entrada"; // default = "saida"
 }
 
 /**
@@ -67,6 +70,11 @@ function buildNFeXml(dados: DadosNFe): string {
     emailDestinatario, placa, descricao, renavam, chassi, valorVenda,
     tipoPagamento = "99"
   } = dados;
+
+  const isEntrada = dados.tipoOperacao === "entrada";
+  const tpNF = isEntrada ? "0" : "1";
+  const natOp = isEntrada ? "ENTRADA DE VEICULO" : "SAIDA DE VEICULO";
+  const cfop = isEntrada ? "1102" : "5102";
 
   const dhEmiFormatted = formatarDhEmi(dhEmi, uf);
   const valorStr = valorVenda.toFixed(2);
@@ -100,12 +108,12 @@ function buildNFeXml(dados: DadosNFe): string {
 <ide>
 <cUF>${cUF}</cUF>
 <cNF>${cNF}</cNF>
-<natOp>SAIDA DE VEICULO</natOp>
+<natOp>${natOp}</natOp>
 <mod>55</mod>
 <serie>${serie}</serie>
 <nNF>${nNF}</nNF>
 <dhEmi>${dhEmiFormatted}</dhEmi>
-<tpNF>1</tpNF>
+<tpNF>${tpNF}</tpNF>
 <idDest>1</idDest>
 <cMunFG>${cMunF}</cMunFG>
 <tpImp>1</tpImp>
@@ -159,7 +167,7 @@ function buildNFeXml(dados: DadosNFe): string {
 <cEAN>SEM GTIN</cEAN>
 <xProd>${esc(descricao.slice(0, 120))}</xProd>
 <NCM>87032310</NCM>
-<CFOP>5102</CFOP>
+<CFOP>${cfop}</CFOP>
 <uCom>UN</uCom>
 <qCom>1.0000</qCom>
 <vUnCom>${valorUnStr}</vUnCom>

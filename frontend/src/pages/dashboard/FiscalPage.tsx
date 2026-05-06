@@ -509,6 +509,13 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
   } | null>(null);
   const [baixandoDanfe, setBaixandoDanfe] = useState(false);
 
+  const [tipoOperacao, setTipoOperacao] = useState<"saida" | "entrada">("saida");
+
+  const [buscaLead, setBuscaLead] = useState("");
+  const [leads, setLeads] = useState<{ id: string; name: string; phone: string; email?: string }[]>([]);
+  const [buscandoLead, setBuscandoLead] = useState(false);
+  const [showLeadDropdown, setShowLeadDropdown] = useState(false);
+
   const [form, setForm] = useState({
     placa: "", descricao: "", renavam: "", chassi: "", valorVenda: "",
     cpfCnpjDestinatario: "", nomeDestinatario: "",
@@ -551,6 +558,31 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialVeiculoId]);
 
+  useEffect(() => {
+    if (buscaLead.length < 2) { setLeads([]); return; }
+    setBuscandoLead(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/store/me/leads?search=${encodeURIComponent(buscaLead)}&pageSize=8`);
+        setLeads(res.data.items);
+        setShowLeadDropdown(true);
+      } finally {
+        setBuscandoLead(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [buscaLead]);
+
+  function selecionarLead(lead: { name: string; email?: string }) {
+    setForm(f => ({
+      ...f,
+      nomeDestinatario: lead.name,
+      emailDestinatario: lead.email ?? f.emailDestinatario
+    }));
+    setBuscaLead(lead.name);
+    setShowLeadDropdown(false);
+  }
+
   function selecionarVeiculo(v: VeiculoBusca) {
     setVeiculoSelecionado(v);
     setBusca(`${v.brand} ${v.model} ${v.year} — ${v.plate ?? "sem placa"}`);
@@ -577,7 +609,8 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
       const payload = {
         ...form,
         veiculoId: veiculoSelecionado?.id,
-        valorVenda: parseFloat(form.valorVenda.replace(",", "."))
+        valorVenda: parseFloat(form.valorVenda.replace(",", ".")),
+        tipoOperacao
       };
       const res = await api.post("/nfe/emitir", payload);
       setResultado({ ok: true, mensagem: res.data.message, nota: res.data.nota });
@@ -655,6 +688,40 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
           )}
         </div>
       )}
+
+      {/* Tipo de Operação */}
+      <div className="rounded-2xl border border-white/10 bg-base-900 p-5">
+        <h3 className="mb-4 text-sm font-semibold text-zinc-200">Tipo de Operação</h3>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setTipoOperacao("saida")}
+            className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition ${
+              tipoOperacao === "saida"
+                ? "border-gold-400 bg-gold-400/10 text-gold-300"
+                : "border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+            }`}
+          >
+            Saída
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipoOperacao("entrada")}
+            className={`flex-1 rounded-xl border py-3 text-sm font-semibold transition ${
+              tipoOperacao === "entrada"
+                ? "border-blue-400 bg-blue-400/10 text-blue-300"
+                : "border-white/10 text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+            }`}
+          >
+            Entrada
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-600">
+          {tipoOperacao === "saida"
+            ? "Venda de veículo — CFOP 5102, Natureza: SAÍDA DE VEÍCULO"
+            : "Compra de veículo — CFOP 1102, Natureza: ENTRADA DE VEÍCULO"}
+        </p>
+      </div>
 
       {/* Veículo */}
       <div className="rounded-2xl border border-white/10 bg-base-900 p-5">
@@ -742,7 +809,43 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
 
       {/* Destinatário */}
       <div className="rounded-2xl border border-white/10 bg-base-900 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-zinc-200">Dados do Comprador (Destinatário)</h3>
+        <h3 className="mb-4 text-sm font-semibold text-zinc-200">
+          {tipoOperacao === "saida" ? "Dados do Comprador (Destinatário)" : "Dados do Vendedor (Destinatário)"}
+        </h3>
+
+        {/* Busca rápida de cliente/lead */}
+        <div className="relative mb-4">
+          <label className="mb-1.5 block text-xs text-zinc-400">Buscar cliente nos leads</label>
+          <div className="relative">
+            <input
+              value={buscaLead}
+              onChange={e => { setBuscaLead(e.target.value); }}
+              onFocus={() => leads.length > 0 && setShowLeadDropdown(true)}
+              placeholder="Pesquise por nome, telefone ou e-mail..."
+              className="w-full rounded-xl border border-white/10 bg-base-950 px-3 py-2 pr-8 text-sm text-zinc-100 placeholder-zinc-600 focus:border-gold-400/50 focus:outline-none"
+            />
+            <span className="absolute right-2.5 top-2.5 text-zinc-500">
+              {buscandoLead ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+            </span>
+          </div>
+          {showLeadDropdown && leads.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-base-900 shadow-xl">
+              {leads.map(l => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => selecionarLead(l)}
+                  className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm hover:bg-white/5"
+                >
+                  <div>
+                    <p className="text-zinc-100">{l.name}</p>
+                    <p className="text-xs text-zinc-500">{l.phone}{l.email ? ` — ${l.email}` : ""}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="CPF / CNPJ *" value={form.cpfCnpjDestinatario} onChange={v => setField("cpfCnpjDestinatario", v)} placeholder="000.000.000-00" required />
