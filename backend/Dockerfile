@@ -10,7 +10,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-COPY . .
+COPY prisma ./prisma
+COPY src ./src
+COPY tsconfig.json ./
 # Usa comandos diretos — não depende de qual package.json está no contexto
 RUN npx prisma generate
 RUN npx tsc -p tsconfig.json
