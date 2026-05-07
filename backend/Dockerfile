@@ -1,5 +1,5 @@
 # Backend only deploy image for Railway
-# v3 - usa comandos diretos para ser robusto a qualquer build context
+# v4 - clientes module + cache bust 2026-05-07
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
