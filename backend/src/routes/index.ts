@@ -5,6 +5,7 @@ import vehicleRoutes from "./vehicle.routes";
 import subscriptionRoutes from "./subscription.routes";
 import adminRoutes from "./admin.routes";
 import nfeRoutes from "./nfe.routes";
+import clienteRoutes from "./cliente.routes";
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use("/vehicles", vehicleRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/admin", adminRoutes);
 router.use("/nfe", nfeRoutes);
+router.use("/clientes", clienteRoutes);
 
 export default router;

@@ -511,10 +511,10 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
 
   const [tipoOperacao, setTipoOperacao] = useState<"saida" | "entrada">("saida");
 
-  const [buscaLead, setBuscaLead] = useState("");
-  const [leads, setLeads] = useState<{ id: string; name: string; phone: string; email?: string }[]>([]);
-  const [buscandoLead, setBuscandoLead] = useState(false);
-  const [showLeadDropdown, setShowLeadDropdown] = useState(false);
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [clientes, setClientes] = useState<{ id: string; nome: string; cpfCnpj: string; telefone?: string; email?: string; logradouro: string; numero: string; bairro: string; cep: string; cMun: string; xMun: string; uf: string }[]>([]);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
 
   const [form, setForm] = useState({
     placa: "", descricao: "", renavam: "", chassi: "", valorVenda: "",
@@ -559,28 +559,36 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
   }, [initialVeiculoId]);
 
   useEffect(() => {
-    if (buscaLead.length < 2) { setLeads([]); return; }
-    setBuscandoLead(true);
+    if (buscaCliente.length < 2) { setClientes([]); return; }
+    setBuscandoCliente(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await api.get(`/store/me/leads?search=${encodeURIComponent(buscaLead)}&pageSize=8`);
-        setLeads(res.data.items);
-        setShowLeadDropdown(true);
+        const res = await api.get(`/clientes?q=${encodeURIComponent(buscaCliente)}&pageSize=8`);
+        setClientes(res.data.items);
+        setShowClienteDropdown(true);
       } finally {
-        setBuscandoLead(false);
+        setBuscandoCliente(false);
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [buscaLead]);
+  }, [buscaCliente]);
 
-  function selecionarLead(lead: { name: string; email?: string }) {
+  function selecionarCliente(c: typeof clientes[0]) {
     setForm(f => ({
       ...f,
-      nomeDestinatario: lead.name,
-      emailDestinatario: lead.email ?? f.emailDestinatario
+      cpfCnpjDestinatario: c.cpfCnpj,
+      nomeDestinatario: c.nome,
+      emailDestinatario: c.email ?? f.emailDestinatario,
+      logradouroDestinatario: c.logradouro || f.logradouroDestinatario,
+      numeroDestinatario: c.numero || f.numeroDestinatario,
+      bairroDestinatario: c.bairro || f.bairroDestinatario,
+      cepDestinatario: c.cep || f.cepDestinatario,
+      cMunDestinatario: c.cMun || f.cMunDestinatario,
+      xMunDestinatario: c.xMun || f.xMunDestinatario,
+      ufDestinatario: c.uf || f.ufDestinatario
     }));
-    setBuscaLead(lead.name);
-    setShowLeadDropdown(false);
+    setBuscaCliente(c.nome);
+    setShowClienteDropdown(false);
   }
 
   function selecionarVeiculo(v: VeiculoBusca) {
@@ -813,38 +821,39 @@ function AbaEmitir({ onEmitida, initialVeiculoId }: { onEmitida: () => void; ini
           {tipoOperacao === "saida" ? "Dados do Comprador (Destinatário)" : "Dados do Vendedor (Destinatário)"}
         </h3>
 
-        {/* Busca rápida de cliente/lead */}
+        {/* Busca de cliente cadastrado */}
         <div className="relative mb-4">
-          <label className="mb-1.5 block text-xs text-zinc-400">Buscar cliente nos leads</label>
+          <label className="mb-1.5 block text-xs text-zinc-400">Buscar cliente cadastrado</label>
           <div className="relative">
             <input
-              value={buscaLead}
-              onChange={e => { setBuscaLead(e.target.value); }}
-              onFocus={() => leads.length > 0 && setShowLeadDropdown(true)}
-              placeholder="Pesquise por nome, telefone ou e-mail..."
+              value={buscaCliente}
+              onChange={e => { setBuscaCliente(e.target.value); }}
+              onFocus={() => clientes.length > 0 && setShowClienteDropdown(true)}
+              placeholder="Nome, CPF/CNPJ, telefone ou e-mail..."
               className="w-full rounded-xl border border-white/10 bg-base-950 px-3 py-2 pr-8 text-sm text-zinc-100 placeholder-zinc-600 focus:border-gold-400/50 focus:outline-none"
             />
             <span className="absolute right-2.5 top-2.5 text-zinc-500">
-              {buscandoLead ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {buscandoCliente ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
             </span>
           </div>
-          {showLeadDropdown && leads.length > 0 && (
+          {showClienteDropdown && clientes.length > 0 && (
             <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-base-900 shadow-xl">
-              {leads.map(l => (
+              {clientes.map(c => (
                 <button
-                  key={l.id}
+                  key={c.id}
                   type="button"
-                  onClick={() => selecionarLead(l)}
+                  onClick={() => selecionarCliente(c)}
                   className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm hover:bg-white/5"
                 >
                   <div>
-                    <p className="text-zinc-100">{l.name}</p>
-                    <p className="text-xs text-zinc-500">{l.phone}{l.email ? ` — ${l.email}` : ""}</p>
+                    <p className="text-zinc-100">{c.nome}</p>
+                    <p className="text-xs text-zinc-500">{c.cpfCnpj}{c.xMun ? ` — ${c.xMun}/${c.uf}` : ""}</p>
                   </div>
                 </button>
               ))}
             </div>
           )}
+          <p className="mt-1 text-xs text-zinc-600">Não encontrou? <a href="/dashboard/clientes" target="_blank" className="text-gold-400 hover:underline">Cadastrar novo cliente</a></p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

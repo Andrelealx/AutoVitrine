@@ -131,6 +131,7 @@ model Store {
   storefrontViews    StorefrontView[]
   lojaFiscal         LojaFiscal?
   notasFiscais       NotaFiscal[]
+  clientes           Cliente[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 }
@@ -187,6 +188,28 @@ model Lead {
   createdAt DateTime @default(now())
 
   @@index([storeId, createdAt])
+}
+
+model Cliente {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  nome         String
+  cpfCnpj      String
+  telefone     String?
+  email        String?
+  logradouro   String   @default("")
+  numero       String   @default("")
+  bairro       String   @default("")
+  cep          String   @default("")
+  cMun         String   @default("")
+  xMun         String   @default("")
+  uf           String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([storeId, nome])
+  @@index([storeId, cpfCnpj])
 }
 
 model Plan {

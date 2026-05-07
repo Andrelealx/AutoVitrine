@@ -38,6 +38,9 @@ const UsersPage = lazy(() =>
 const FiscalPage = lazy(() =>
   import("./pages/dashboard/FiscalPage").then((m) => ({ default: m.FiscalPage }))
 );
+const ClientesPage = lazy(() =>
+  import("./pages/dashboard/ClientesPage").then((m) => ({ default: m.ClientesPage }))
+);
 
 // Admin — lazy loaded: usado por pouquíssimas pessoas
 const AdminOverviewPage = lazy(() =>
@@ -156,6 +159,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <FiscalPage />
+              </Suspense>
+            )
+          },
+          {
+            path: "clientes",
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ClientesPage />
               </Suspense>
             )
           }
