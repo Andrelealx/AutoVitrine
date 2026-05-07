@@ -190,6 +190,8 @@ ${body}
  * Cria agente HTTPS com mutual TLS usando o certificado .pfx do emitente.
  * O SEFAZ exige que o cliente apresente seu certificado durante o handshake TLS.
  * Usa node-forge para converter PFX → PEM (compatível com PKCS12 moderno do OpenSSL 3.x).
+ * Envia a cadeia completa de certificados (leaf + intermediárias ICP-Brasil) para
+ * que o IIS do SEFAZ consiga validar o mTLS — omitir a cadeia causa HTTP 403.
  */
 function criarAgenteSEFAZ(pfxBuffer: Buffer, pfxPassword: string): https.Agent {
   const pfxDer = forge.util.createBuffer(pfxBuffer.toString("binary"));
@@ -199,13 +201,18 @@ function criarAgenteSEFAZ(pfxBuffer: Buffer, pfxPassword: string): https.Agent {
   const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
   const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
 
-  const cert = certBags[forge.pki.oids.certBag]?.[0]?.cert;
-  const key = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]?.key;
+  // Extrai TODOS os certs do PFX (leaf + intermediárias ICP-Brasil) e concatena em PEM
+  const allCerts = certBags[forge.pki.oids.certBag] ?? [];
+  if (allCerts.length === 0) throw new Error("Nenhum certificado encontrado no PFX");
+  const certChainPem = allCerts
+    .map(bag => forge.pki.certificateToPem(bag.cert!))
+    .join("\n");
 
-  if (!cert || !key) throw new Error("Certificado ou chave não encontrados no PFX");
+  const key = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]?.key;
+  if (!key) throw new Error("Chave privada não encontrada no PFX");
 
   return new https.Agent({
-    cert: forge.pki.certificateToPem(cert),
+    cert: certChainPem,
     key: forge.pki.privateKeyToPem(key),
     rejectUnauthorized: false // ICP-Brasil não está nas CAs padrão do Node
   });
