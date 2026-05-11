@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { requireAuth } from "../middleware/auth.middleware";
-import { AppError } from "../middleware/error.middleware";
+import { requireAuth } from "../middleware/auth";
+import { AppError } from "../utils/app-error";
 
 const router = Router();
 router.use(requireAuth);
