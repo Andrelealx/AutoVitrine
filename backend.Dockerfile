@@ -6,12 +6,12 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-COPY backend/package*.json ./
+COPY package*.json ./
 RUN npm install
 
-COPY backend/prisma ./prisma
-COPY backend/src ./src
-COPY backend/tsconfig.json ./
+COPY prisma ./prisma
+COPY src ./src
+COPY tsconfig.json ./
 RUN npx prisma generate
 RUN npx tsc -p tsconfig.json
 
