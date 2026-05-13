@@ -1,5 +1,5 @@
 # Backend deploy image for Railway
-# v6 - 2026-05-13 fix prisma client binaries
+# v7 - 2026-05-13 rebuild forçado
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
