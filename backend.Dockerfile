@@ -1,5 +1,5 @@
 # Backend deploy image for Railway
-# v8 - 2026-05-13 nginx proxy na frente do Node (igual frontend)
+# v9 - 2026-05-13 entrypoint como arquivo separado + debug
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -31,29 +31,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-# Nginx config: escuta em $PORT e faz proxy para Node na 4000
-RUN echo 'server { \
-  listen ${PORT}; \
-  location / { \
-    proxy_pass http://127.0.0.1:4000; \
-    proxy_http_version 1.1; \
-    proxy_set_header Upgrade $http_upgrade; \
-    proxy_set_header Connection "upgrade"; \
-    proxy_set_header Host $host; \
-    proxy_set_header X-Real-IP $remote_addr; \
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
-    proxy_set_header X-Forwarded-Proto $scheme; \
-    proxy_read_timeout 300s; \
-    proxy_connect_timeout 10s; \
-  } \
-}' > /etc/nginx/conf.d/default.conf
+# Nginx config com placeholder ${PORT}
+RUN printf 'server {\n  listen ${PORT};\n  location / {\n    proxy_pass http://127.0.0.1:4000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection "upgrade";\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    proxy_read_timeout 300s;\n    proxy_connect_timeout 10s;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
 
-# Script de entrypoint
-RUN echo '#!/bin/sh' > /entrypoint.sh && \
-    echo 'sed -i "s/\${PORT}/$PORT/g" /etc/nginx/conf.d/default.conf' >> /entrypoint.sh && \
-    echo 'node /app/dist/server.js &' >> /entrypoint.sh && \
-    echo 'nginx -g "daemon off;"' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8080
 CMD ["/entrypoint.sh"]
