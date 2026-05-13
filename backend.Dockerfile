@@ -16,11 +16,12 @@ COPY src ./src
 COPY tsconfig.json ./
 RUN npx tsc -p tsconfig.json
 
-# Runner: nginx:alpine + Node.js
-FROM nginx:alpine AS runner
+# Runner: nginx:bookworm (Debian/glibc) + Node.js 20
+FROM nginx:bookworm AS runner
 
-# Instala Node.js 20 no alpine
-RUN apk add --no-cache nodejs npm openssl
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends nodejs npm openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 ENV NODE_ENV=production
