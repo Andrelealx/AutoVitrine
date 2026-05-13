@@ -4,8 +4,9 @@ import { logger } from "./config/logger";
 import { prisma } from "./config/prisma";
 import { startSubscriptionLifecycleJob } from "./services/subscription-lifecycle.service";
 
-const server = app.listen(env.PORT, () => {
-  logger.info(`AutoVitrine API rodando na porta ${env.PORT}`);
+const port = Number(process.env.PORT) || env.PORT;
+const server = app.listen(port, "0.0.0.0", () => {
+  logger.info(`AutoVitrine API rodando na porta ${port}`);
   startSubscriptionLifecycleJob();
 });
 
