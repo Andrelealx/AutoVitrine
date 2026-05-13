@@ -31,8 +31,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-# Nginx config com placeholder ${PORT}
-RUN printf 'server {\n  listen ${PORT};\n  location / {\n    proxy_pass http://127.0.0.1:4000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection "upgrade";\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    proxy_read_timeout 300s;\n    proxy_connect_timeout 10s;\n  }\n}\n' > /etc/nginx/conf.d/default.conf
+# Remove config default do nginx (evita conflito na porta 80)
+# Cria config com placeholder literal RAILWAY_PORT (não $PORT para evitar expansão no shell do RUN)
+RUN rm -f /etc/nginx/conf.d/default.conf && \
+    printf 'server {\n  listen RAILWAY_PORT;\n  location / {\n    proxy_pass http://127.0.0.1:4000;\n    proxy_http_version 1.1;\n    proxy_set_header Host $host;\n    proxy_set_header X-Real-IP $remote_addr;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    proxy_read_timeout 300s;\n    proxy_connect_timeout 10s;\n  }\n}\n' > /etc/nginx/conf.d/backend.conf
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

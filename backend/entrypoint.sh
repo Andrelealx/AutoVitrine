@@ -1,18 +1,9 @@
 #!/bin/sh
-set -e
 
 echo "PORT=$PORT"
-echo "Nginx vai escutar na porta: $PORT"
-echo "Node rodando na porta: 4000"
-
-sed -i "s/\${PORT}/$PORT/g" /etc/nginx/conf.d/default.conf
-
-echo "=== nginx.conf após substituição ==="
-cat /etc/nginx/conf.d/default.conf
-echo "===================================="
-
-nginx -t
-
+echo "Iniciando Node na porta 4000..."
 node /app/dist/server.js &
 
+echo "Iniciando Nginx na porta $PORT..."
+sed -i "s/RAILWAY_PORT/$PORT/g" /etc/nginx/conf.d/backend.conf
 nginx -g "daemon off;"
