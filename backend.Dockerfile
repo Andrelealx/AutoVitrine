@@ -1,5 +1,5 @@
 # Backend deploy image for Railway
-# v5 - 2026-05-11 novo caminho de Dockerfile
+# v6 - 2026-05-13 fix prisma client binaries
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -10,9 +10,10 @@ COPY package*.json ./
 RUN npm install
 
 COPY prisma ./prisma
+RUN npx prisma generate
+
 COPY src ./src
 COPY tsconfig.json ./
-RUN npx prisma generate
 RUN npx tsc -p tsconfig.json
 
 FROM node:20-bookworm-slim AS runner
@@ -28,4 +29,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 8080
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+CMD ["node", "dist/server.js"]
